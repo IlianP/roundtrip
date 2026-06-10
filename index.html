@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Roundtrip – Rundkurs-Planer</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+  :root{
+    --bg:#ffffff; --fg:#1a1d21; --muted:#6b7280; --accent:#1d6ef5; --accent-fg:#fff;
+    --ok:#16a34a; --warn:#d97706; --err:#dc2626; --border:#e5e7eb; --card-shadow:0 4px 18px rgba(0,0,0,.16);
+    --radius:14px;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; color:var(--fg);}
+  #map{position:fixed; inset:0; z-index:0;}
+
+  /* ---------- Control panel ---------- */
+  .panel{
+    position:fixed; z-index:1000; top:12px; left:12px; width:330px; max-width:calc(100vw - 24px);
+    background:var(--bg); border-radius:var(--radius); box-shadow:var(--card-shadow);
+    padding:14px 16px; display:flex; flex-direction:column; gap:10px;
+  }
+  .panel h1{font-size:17px; display:flex; align-items:center; justify-content:space-between;}
+  .panel h1 .gear{cursor:pointer; border:none; background:none; font-size:18px; line-height:1; padding:4px;}
+  .row{display:flex; gap:8px; align-items:center;}
+  label.small{font-size:12px; color:var(--muted);}
+
+  input[type=number], input[type=text]{
+    width:100%; padding:9px 10px; border:1px solid var(--border); border-radius:9px; font-size:15px;
+  }
+  input:focus{outline:2px solid var(--accent); outline-offset:-1px;}
+
+  .seg{display:flex; border:1px solid var(--border); border-radius:9px; overflow:hidden; flex:1;}
+  .seg button{
+    flex:1; padding:9px 0; border:none; background:var(--bg); font-size:15px; cursor:pointer; color:var(--muted);
+  }
+  .seg button.active{background:var(--accent); color:var(--accent-fg);}
+
+  .btn{
+    border:none; border-radius:9px; padding:10px 12px; font-size:15px; cursor:pointer;
+    background:#f1f3f6; color:var(--fg); display:flex; align-items:center; justify-content:center; gap:6px;
+  }
+  .btn:hover{filter:brightness(.96);}
+  .btn.primary{background:var(--accent); color:var(--accent-fg); font-weight:600;}
+  .btn:disabled{opacity:.55; cursor:default;}
+  .btn-row{display:flex; gap:8px;}
+  .btn-row .btn{flex:1;}
+
+  #status{font-size:13px; color:var(--muted); min-height:18px; line-height:1.45;}
+  #status .ok{color:var(--ok); font-weight:600;}
+  #status .warn{color:var(--warn); font-weight:600;}
+  #status .err{color:var(--err);}
+
+  #searchWrap{position:relative;}
+  #searchResults{
+    position:absolute; top:100%; left:0; right:0; background:var(--bg); border:1px solid var(--border);
+    border-radius:9px; margin-top:4px; max-height:180px; overflow:auto; z-index:1100; display:none;
+  }
+  #searchResults div{padding:8px 10px; font-size:13px; cursor:pointer; border-bottom:1px solid var(--border);}
+  #searchResults div:hover{background:#f1f3f6;}
+
+  /* ---------- Settings modal ---------- */
+  #modalBg{position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:2000; display:none; align-items:center; justify-content:center;}
+  #modal{
+    background:var(--bg); border-radius:var(--radius); padding:20px; width:320px; max-width:calc(100vw - 32px);
+    display:flex; flex-direction:column; gap:14px; box-shadow:var(--card-shadow);
+  }
+  #modal h2{font-size:16px;}
+  #modal .field{display:flex; flex-direction:column; gap:4px;}
+  #modal .hint{font-size:12px; color:var(--muted);}
+
+  /* ---------- Routen-Liste ---------- */
+  #routesBg{position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:2000; display:none; align-items:center; justify-content:center;}
+  #routesModal{
+    background:var(--bg); border-radius:var(--radius); padding:20px; width:420px; max-width:calc(100vw - 32px);
+    max-height:80vh; overflow:auto; display:flex; flex-direction:column; gap:10px; box-shadow:var(--card-shadow);
+  }
+  #routesModal h2{font-size:16px;}
+  .routeItem{border:1px solid var(--border); border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:6px;}
+  .routeItem .rname{font-weight:600; font-size:14px; word-break:break-word;}
+  .routeItem .rmeta{font-size:12px; color:var(--muted);}
+  .routeItem .ractions{display:flex; gap:6px; flex-wrap:wrap;}
+  .routeItem .ractions .btn{padding:6px 8px; font-size:13px; flex:1; white-space:nowrap;}
+
+  /* ---------- Toast ---------- */
+  #toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+    background:#1a1d21; color:#fff; padding:10px 18px; border-radius:10px; font-size:14px;
+    z-index:3000; display:none; max-width:90vw; text-align:center;
+  }
+
+  .spinner{
+    width:15px; height:15px; border:2px solid rgba(255,255,255,.4); border-top-color:#fff;
+    border-radius:50%; animation:spin .8s linear infinite; display:inline-block;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  @media (max-width:640px){
+    .panel{top:auto; bottom:0; left:0; width:100vw; max-width:100vw; border-radius:16px 16px 0 0; padding-bottom:max(14px, env(safe-area-inset-bottom));}
+  }
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div class="panel">
+  <h1>🔄 Roundtrip
+    <span>
+      <button class="gear" id="routesBtn" title="Gespeicherte Routen">📁</button>
+      <button class="gear" id="gearBtn" title="Einstellungen">⚙️</button>
+    </span>
+  </h1>
+
+  <div id="searchWrap">
+    <input type="text" id="searchInput" placeholder="Startpunkt suchen … (oder Karte antippen)" autocomplete="off">
+    <div id="searchResults"></div>
+  </div>
+
+  <div class="row">
+    <div style="flex:1">
+      <label class="small" for="distInput">Distanz (km)</label>
+      <input type="number" id="distInput" value="5" min="0.5" max="300" step="0.5">
+    </div>
+    <div style="flex:1.3">
+      <label class="small">Verkehrsmittel</label>
+      <div class="seg">
+        <button id="modeFoot" class="active" title="Zu Fuß">🚶 Fuß</button>
+        <button id="modeCar" title="Auto">🚗 Auto</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn" id="locateBtn" title="Eigenen Standort verwenden">📍 Standort</button>
+    <button class="btn primary" id="genBtn">Route erzeugen</button>
+  </div>
+  <div class="btn-row">
+    <button class="btn" id="variantBtn" disabled>🎲 Variante</button>
+    <button class="btn" id="saveBtn" disabled>💾 Speichern</button>
+    <button class="btn" id="gpxBtn" disabled>⬇️ GPX</button>
+  </div>
+
+  <div id="status">Startpunkt wählen: 📍-Button oder Karte antippen.</div>
+</div>
+
+<div id="modalBg">
+  <div id="modal">
+    <h2>Einstellungen</h2>
+    <div class="field">
+      <label class="small" for="tolInput">Toleranz (± % der Zieldistanz)</label>
+      <input type="number" id="tolInput" min="1" max="50" step="1" value="5">
+      <span class="hint">Die Route gilt als Treffer, wenn die tatsächliche Länge maximal so viel abweicht.
+      Hinweis: Um Doppelstrecken („Zipfel") zu vermeiden, darf die Route bei der Auswahl bis ca. 10 % abweichen —
+      Routen mit weniger Doppelstrecke werden bevorzugt. Die Zwischenpunkte wählt die App automatisch
+      passend zur Gegend (städtisch/ländlich).</span>
+    </div>
+    <div class="field">
+      <label class="small" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+        <input type="checkbox" id="mwInput" checked> Autobahn vermeiden (Auto-Modus)
+      </label>
+      <span class="hint">Bevorzugt Routen ohne Autobahn-/Schnellstraßenanteile – genau dort entstehen die längsten Stichfahrten ohne Abbiegemöglichkeit.</span>
+    </div>
+    <div class="btn-row">
+      <button class="btn" id="modalCancel">Abbrechen</button>
+      <button class="btn primary" id="modalSave">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<div id="routesBg">
+  <div id="routesModal">
+    <h2>📁 Gespeicherte Routen</h2>
+    <div id="routesList"></div>
+    <div class="btn-row"><button class="btn" id="routesClose">Schließen</button></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+"use strict";
+
+/* ================= Konfiguration ================= */
+const OSRM = {
+  foot: ["https://routing.openstreetmap.de/routed-foot/route/v1/foot/"],
+  car:  ["https://routing.openstreetmap.de/routed-car/route/v1/car/",
+         "https://router.project-osrm.org/route/v1/driving/"]
+};
+const MAX_ITER = 8;           // max. Anpassungs-Iterationen pro Versuch
+const MAX_SEEDS = 5;          // verschiedene Richtungen/Formen probieren
+const REQUEST_BUDGET = 16;    // max. Routing-Anfragen pro Erzeugung
+const GOOD_OVERLAP = 0.08;    // ≤8 % Nähe-Doppelstrecke = sofort akzeptieren
+const MIN_ROUNDNESS = 0.25;   // isoperimetrischer Quotient für Sofort-Akzeptanz
+const ITER_DELAY_MS = 250;    // Fairness ggü. dem freien Demo-Server
+
+/* ================= State ================= */
+let settings = loadSettings();
+let mode = "foot";
+let start = null;             // L.LatLng
+let startMarker = null, routeLine = null, wpMarkers = [];
+let lastRoute = null;         // {coords, distance, duration}
+let lastSeed = null;
+let busy = false;
+
+/* ================= Karte ================= */
+const map = L.map("map", { zoomControl: false }).setView([51.16, 10.45], 6);
+L.control.zoom({ position: "topright" }).addTo(map);
+L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  maxZoom: 19,
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>-Mitwirkende | Routing: <a href="https://routing.openstreetmap.de">FOSSGIS/OSRM</a>'
+}).addTo(map);
+L.control.scale({ imperial: false, maxWidth: 160, position: "bottomright" }).addTo(map);
+
+map.on("click", e => { if (!busy) setStart(e.latlng, true); });
+
+/* ================= Geometrie-Helfer ================= */
+const R_EARTH = 6371008.8;
+const toRad = d => d * Math.PI / 180, toDeg = r => r * 180 / Math.PI;
+
+function destPoint(lat, lon, bearingDeg, distM) {
+  const δ = distM / R_EARTH, θ = toRad(bearingDeg);
+  const φ1 = toRad(lat), λ1 = toRad(lon);
+  const φ2 = Math.asin(Math.sin(φ1) * Math.cos(δ) + Math.cos(φ1) * Math.sin(δ) * Math.cos(θ));
+  const λ2 = λ1 + Math.atan2(Math.sin(θ) * Math.sin(δ) * Math.cos(φ1),
+                             Math.cos(δ) - Math.sin(φ1) * Math.sin(φ2));
+  return [toDeg(φ2), ((toDeg(λ2) + 540) % 360) - 180];
+}
+
+function segLen(a, b) { // Haversine in Metern
+  const dφ = toRad(b[0] - a[0]), dλ = toRad(b[1] - a[1]);
+  const s = Math.sin(dφ / 2) ** 2 + Math.cos(toRad(a[0])) * Math.cos(toRad(b[0])) * Math.sin(dλ / 2) ** 2;
+  return 2 * R_EARTH * Math.asin(Math.sqrt(s));
+}
+
+/* Route in äquidistante Stützpunkte (~40 m) entlang des Verlaufs zerlegen */
+function routeSamples(coords, step = 40) {
+  const pts = [];
+  let pos = 0;
+  for (let i = 1; i < coords.length; i++) {
+    const a = coords[i - 1], b = coords[i], L = segLen(a, b);
+    if (!L) continue;
+    const n = Math.max(1, Math.ceil(L / step));
+    for (let k = 0; k < n; k++) {
+      const t = k / n;
+      pts.push({ lat: a[0] + (b[0] - a[0]) * t, lon: a[1] + (b[1] - a[1]) * t,
+                 pos: pos + L * t, w: L / n, seg: i - 1 });
+    }
+    pos += L;
+  }
+  return { pts, total: pos };
+}
+
+/* Nähe-Doppelstrecken-Metrik ("Zipfel"): Anteil der Strecke, der räumlich
+   nahe (≤ ~1 Rasterzelle, 75 m) an einem ENTFERNTEN Teil der Route verläuft
+   (Streckenabstand > minSep, zirkulär gemessen, da Rundkurs). Erfasst auch
+   getrennte Richtungsfahrbahnen (Autobahn!) und parallele Nebenwege.
+   Einmaliges Kreuzen der eigenen Route fällt kaum ins Gewicht. */
+function overlapAnalysis(coords) {
+  // 35-m-Zellen + Nachbarzellen ⇒ erfasst Wiederholungen bis ~70 m Abstand:
+  // gleiche Straße & getrennte Richtungsfahrbahnen ja, normale Parallelstraßen nein.
+  const CELL = 35;
+  const { pts, total } = routeSamples(coords);
+  if (!total) return { fraction: 0, samples: [], total: 0 };
+  const minSep = Math.max(250, total * 0.05);
+  const lat0 = toRad(coords[0][0]);
+  const dLat = CELL / 111320, dLon = CELL / (111320 * Math.max(0.2, Math.cos(lat0)));
+
+  const grid = new Map();
+  for (const p of pts) {
+    const k = Math.floor(p.lat / dLat) + ":" + Math.floor(p.lon / dLon);
+    if (!grid.has(k)) grid.set(k, []);
+    grid.get(k).push(p.pos);
+  }
+
+  let dup = 0;
+  const samples = [];
+  for (const p of pts) {
+    const cy = Math.floor(p.lat / dLat), cx = Math.floor(p.lon / dLon);
+    let far = false;
+    check:
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const arr = grid.get((cy + dy) + ":" + (cx + dx));
+      if (!arr) continue;
+      for (const q of arr) {
+        const d = Math.abs(q - p.pos);
+        if (Math.min(d, total - d) > minSep) { far = true; break check; }
+      }
+    }
+    if (far) dup += p.w;
+    samples.push({ pos: p.pos, w: p.w, far });
+  }
+  return { fraction: dup / total, samples, total };
+}
+function overlapFraction(coords) { return overlapAnalysis(coords).fraction; }
+
+/* Pinch-Detektion: Findet den größten "Zipfel" rein geometrisch — zwei Punkte
+   auf der Route, die räumlich nah beieinander liegen (Engstelle/"Hals"),
+   deren Streckenabstand aber ein Vielfaches beträgt. Alles dazwischen ist
+   ein Zipfel, unabhängig davon, welche Straßen er benutzt. */
+function findWorstPinch(coords) {
+  const { pts, total } = routeSamples(coords, 60);
+  if (!total || pts.length < 10) return null;
+  const NECK = Math.max(120, total * 0.004); // max. Halsbreite
+  const lat0 = toRad(coords[0][0]);
+  const dLat = NECK / 111320, dLon = NECK / (111320 * Math.max(0.2, Math.cos(lat0)));
+  const grid = new Map();
+  pts.forEach((p, idx) => {
+    const k = Math.floor(p.lat / dLat) + ":" + Math.floor(p.lon / dLon);
+    if (!grid.has(k)) grid.set(k, []);
+    grid.get(k).push(idx);
+  });
+  let best = null;
+  for (let a = 0; a < pts.length; a++) {
+    const p = pts[a];
+    const cy = Math.floor(p.lat / dLat), cx = Math.floor(p.lon / dLon);
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const arr = grid.get((cy + dy) + ":" + (cx + dx));
+      if (!arr) continue;
+      for (const bIdx of arr) {
+        if (bIdx <= a) continue;
+        const q2 = pts[bIdx];
+        const sec = q2.pos - p.pos;                      // Länge des Zipfel-Abschnitts
+        if (sec < 400 || sec > total * 0.35) continue;   // zu klein / wäre halbe Route
+        const d = segLen([p.lat, p.lon], [q2.lat, q2.lon]);
+        if (d > NECK || sec < 5 * d) continue;           // kein enger Hals / kein Stich
+        const saving = sec - d;
+        if (!best || saving > best.saving) best = { a: p, b: q2, saving };
+      }
+    }
+  }
+  return best;
+}
+
+/* Lokale Zipfel-Reparatur: ersetzt NUR den Abschnitt zwischen den Halspunkten
+   durch eine geroutete Direktverbindung — keine komplette Neuberechnung.
+   Wird nur angewendet, solange die Route nicht zu kurz wird und der
+   Gesamt-Score sich verbessert. */
+async function repairPinches(cand, targetM, profile, tol) {
+  const softMin = targetM * (1 - Math.max(tol, 0.10));
+  let cur = cand, repaired = 0;
+  for (let r = 0; r < 2; r++) {
+    const pinch = findWorstPinch(cur.coords);
+    if (!pinch || pinch.saving < 500) break;
+    if (cur.distance - pinch.saving < softMin) break;    // würde zu kurz werden
+    try {
+      const back = await osrmRoute([[pinch.a.lat, pinch.a.lon], [pinch.b.lat, pinch.b.lon]], profile);
+      const coords = cur.coords.slice(0, pinch.a.seg + 1)
+        .concat(back.coords)
+        .concat(cur.coords.slice(pinch.b.seg + 1));
+      const cut = pinch.b.pos - pinch.a.pos;
+      const distance = cur.distance - cut + back.distance;
+      const duration = cur.duration * (1 - cut / cur.distance) + back.duration;
+      const next = { ...cur, coords, distance, duration,
+                     dev: Math.abs(distance - targetM) / targetM,
+                     overlap: overlapFraction(coords), q: roundness(coords) };
+      const np = findWorstPinch(coords);
+      next.spike = np ? np.saving / distance : 0;
+      if (scoreOf(next, tol) >= scoreOf(cur, tol)) break;
+      next.repaired = (cur.repaired || 0) + 1;
+      cur = next; repaired++;
+    } catch { break; }
+  }
+  return repaired ? cur : null;
+}
+
+/* Zipfel-Chirurgie: Findet den Wegpunkt, dessen Hin- UND Rückweg überwiegend
+   Doppelstrecke ist (typisch: erzwungene Brücken-/Sackgassen-Stichfahrt).
+   Liefert den Index in der aktuellen Wegpunkt-Reihenfolge oder -1. */
+function spurWaypointIndex(samples, legDist) {
+  if (!legDist || legDist.length < 3) return -1;
+  const bounds = [0];
+  for (const d of legDist) bounds.push(bounds[bounds.length - 1] + d);
+  const share = legDist.map((d, i) => {
+    if (d <= 0) return 0;
+    let dup = 0;
+    for (const s of samples) if (s.far && s.pos >= bounds[i] && s.pos < bounds[i + 1]) dup += s.w;
+    return Math.min(1, dup / d);
+  });
+  let best = -1, bestVal = 0.5; // beidseitig mind. 50 % doppelt
+  for (let j = 0; j < legDist.length - 1; j++) { // Wegpunkt j liegt zwischen Leg j und j+1
+    const v = Math.min(share[j], share[j + 1]);
+    if (v > bestVal) { bestVal = v; best = j; }
+  }
+  return best;
+}
+
+/* "Rundheit": isoperimetrischer Quotient Q = 4πA/L² (Kreis = 1).
+   Zipfel fügen Länge ohne umschlossene Fläche hinzu → Q sinkt stark,
+   unabhängig davon, ob derselbe Weg benutzt wird. */
+function roundness(coords) {
+  const lat0 = toRad(coords[0][0]);
+  let area2 = 0, L = 0;
+  for (let i = 1; i < coords.length; i++) {
+    const ax = toRad(coords[i - 1][1]) * Math.cos(lat0) * R_EARTH,
+          ay = toRad(coords[i - 1][0]) * R_EARTH,
+          bx = toRad(coords[i][1]) * Math.cos(lat0) * R_EARTH,
+          by = toRad(coords[i][0]) * R_EARTH;
+    area2 += ax * by - bx * ay;
+    L += segLen(coords[i - 1], coords[i]);
+  }
+  const area = Math.abs(area2) / 2;
+  return L ? (4 * Math.PI * area) / (L * L) : 0;
+}
+
+/* Zwischenpunkte auf einem Kreis, auf dem der Start liegt.
+   skip: Winkel-Indizes, die ausgelassen werden (Zipfel-Chirurgie). */
+function circleWaypoints(startLL, radiusM, seedBearing, n, dir, skip) {
+  const center = destPoint(startLL.lat, startLL.lng, seedBearing, radiusM);
+  const startAngle = (seedBearing + 180) % 360; // Start, vom Zentrum aus gesehen
+  const pts = [], ks = [];
+  for (let k = 1; k <= n; k++) {
+    if (skip && skip.has(k)) continue;
+    const ang = startAngle + dir * (360 * k / (n + 1));
+    pts.push(destPoint(center[0], center[1], ang, radiusM));
+    ks.push(k);
+  }
+  return { pts, ks };
+}
+
+/* ================= OSRM ================= */
+async function osrmRoute(points, profile) {
+  const coordStr = points.map(p => `${p[1].toFixed(6)},${p[0].toFixed(6)}`).join(";");
+  let lastErr = null;
+  for (const base of OSRM[profile]) {
+    try {
+      // exclude=motorway wird von den freien Servern nicht unterstützt (InvalidValue).
+      // Stattdessen: Geschwindigkeits-Annotationen abrufen und Schnellstraßen-Anteil bestrafen.
+      const anno = profile === "car" ? "&annotations=speed,distance" : "";
+      const res = await fetch(`${base}${coordStr}?overview=full&geometries=geojson&continue_straight=true${anno}`);
+      if (!res.ok) { lastErr = `HTTP ${res.status}`; continue; }
+      const data = await res.json();
+      if (data.code !== "Ok" || !data.routes?.length) { lastErr = data.code; continue; }
+      const r = data.routes[0];
+      // Snap-Distanz: wie weit liegen die Wunschpunkte von der nächsten Straße?
+      const snaps = (data.waypoints || []).map(w => w.distance || 0);
+      const avgSnap = snaps.length ? snaps.reduce((a, b) => a + b, 0) / snaps.length : 0;
+      // Schnellstraßen-Anteil (Autobahn/Kraftfahrstraße ≈ Segmente ≥ 22 m/s ≈ 80 km/h)
+      let fastFrac = 0;
+      if (r.legs) {
+        let fast = 0, tot = 0;
+        for (const leg of r.legs) {
+          const sp = leg.annotation?.speed || [], di = leg.annotation?.distance || [];
+          for (let i = 0; i < di.length; i++) { tot += di[i]; if (sp[i] >= 22) fast += di[i]; }
+        }
+        fastFrac = tot ? fast / tot : 0;
+      }
+      return { distance: r.distance, duration: r.duration, avgSnap, fastFrac,
+               legDist: (r.legs || []).map(l => l.distance),
+               coords: r.geometry.coordinates.map(c => [c[1], c[0]]) };
+    } catch (e) { lastErr = e.message; }
+  }
+  throw new Error("Routing fehlgeschlagen (" + lastErr + ")");
+}
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/* ================= Roundtrip-Algorithmus =================
+   Idee: Zwischenpunkte auf einem Kreis (Umfang ≈ Zieldistanz) platzieren,
+   reale Route rechnen, Radius proportional zur Abweichung skalieren.
+   Jede berechnete Route wird als Kandidat gesammelt und zusätzlich nach
+   ihrem Überlappungsanteil (doppelt befahrene Segmente = "Zipfel") bewertet.
+   Am Ende gewinnt der Kandidat mit dem besten kombinierten Score:
+   Toleranz-Verletzung wiegt schwer, danach entscheidet der Zipfel-Anteil. */
+/* Zipfel zählen mehr als Distanz-Genauigkeit: Bis zur weichen Grenze
+   (~10 % bzw. Toleranz, falls größer) kostet Abweichung fast nichts,
+   darüber wird sie teuer. */
+function scoreOf(cand, tol) {
+  const softCap = Math.max(tol, 0.10);
+  let devPen = 0;
+  if (cand.dev > tol)     devPen += (Math.min(cand.dev, softCap) - tol) * 0.5;
+  if (cand.dev > softCap) devPen += (cand.dev - softCap) * 5;
+  const roundPen = Math.max(0, 0.6 - (cand.q || 0)) * 0.5; // unrunde Formen bestrafen
+  return cand.overlap + roundPen + devPen + (cand.fastPen || 0) + (cand.spike || 0);
+}
+
+/* Dynamische Wegpunktzahl je Variante. avgSnap = mittlere Entfernung der
+   Wunschpunkte zur nächsten Straße → groß = ländlich/dünnes Netz.
+   Ländlich: weniger Punkte (mehr Freiheit für den Router, weniger
+   erzwungene Stichwege). Städtisch: mehr Punkte (rundere Schleifen). */
+function waypointPlan(profile, avgSnap) {
+  const rural = avgSnap > 150;
+  if (profile === "car") return rural ? [4, 3, 5, 4, 6] : [5, 6, 7, 5, 4];
+  return rural ? [3, 4, 5, 3, 4] : [4, 5, 6, 4, 3];
+}
+
+async function makeRoundTrip(startLL, targetM, profile, onProgress) {
+  const tol = settings.tolerance / 100;
+  const candidates = [];
+  let requests = 0, plan = null;
+
+  // Richtungen gleichmäßig über 360° verteilen (statt rein zufällig) —
+  // so liegt garantiert eine Variante z. B. ganz abseits eines Flusses.
+  const baseBearing = Math.random() * 360;
+
+  outer:
+  for (let s = 0; s < MAX_SEEDS; s++) {
+    const seed = lastSeed = {
+      bearing: (baseBearing + s * 360 / MAX_SEEDS) % 360,
+      dir: s % 2 ? -1 : 1
+    };
+    let radius = targetM / (2 * Math.PI);
+    let failures = 0;
+    const skip = new Set(); // amputierte Wegpunkt-Winkel dieser Variante
+
+    for (let i = 0; i < MAX_ITER; i++) {
+      if (requests >= REQUEST_BUDGET) break outer;
+      const nWp = plan ? plan[s % plan.length] : (profile === "car" ? 5 : 4);
+      onProgress(`Berechne … (Variante ${s + 1}, Iteration ${i + 1})`);
+      const { pts: wps, ks } = circleWaypoints(startLL, radius, seed.bearing, nWp, seed.dir, skip);
+      if (wps.length < 2) break;
+      let route;
+      try {
+        requests++;
+        route = await osrmRoute([[startLL.lat, startLL.lng], ...wps, [startLL.lat, startLL.lng]], profile);
+      } catch (e) {
+        if (++failures >= 2) break;        // Gebiet vermutlich unroutbar → neue Richtung
+        radius *= 0.7; continue;           // z. B. Wasser: Kreis verkleinern
+      }
+      if (!plan) plan = waypointPlan(profile, route.avgSnap || 0);
+      const dev = Math.abs(route.distance - targetM) / targetM;
+      const analysis = overlapAnalysis(route.coords);
+      const overlap = analysis.fraction;
+      const q = roundness(route.coords);
+      const fastPen = (profile === "car" && settings.avoidMotorway) ? route.fastFrac * 0.6 : 0;
+      const pinch = findWorstPinch(route.coords);
+      const spike = pinch ? pinch.saving / route.distance : 0;
+      const cand = { ...route, dev, overlap, q, fastPen, spike, waypoints: wps };
+      candidates.push(cand);
+
+      // Zipfel-Chirurgie: Wegpunkt auslassen, der eine Stichfahrt erzwingt —
+      // erkannt über Doppelstrecken-Legs ODER über die Pinch-Geometrie
+      // (Wegpunkt liegt im Zipfel-Abschnitt zwischen den Halspunkten).
+      // Die Radius-Anpassung gleicht die fehlende Länge danach automatisch aus.
+      let operated = false;
+      if (skip.size < 2) {
+        let bad = -1;
+        if (overlap > GOOD_OVERLAP) bad = spurWaypointIndex(analysis.samples, route.legDist);
+        if (bad < 0 && spike > 0.02 && pinch && route.legDist?.length > 2) {
+          const bounds = [0];
+          for (const d of route.legDist) bounds.push(bounds[bounds.length - 1] + d);
+          for (let j = 0; j < route.legDist.length - 1; j++) {
+            if (bounds[j + 1] > pinch.a.pos && bounds[j + 1] < pinch.b.pos) { bad = j; break; }
+          }
+        }
+        if (bad >= 0) { skip.add(ks[bad]); operated = true; }
+      }
+
+      if (dev <= tol && !operated) {
+        // Distanz passt. Praktisch zipfelfrei, rund und ohne Schnellstraße? → fertig.
+        if (overlap <= GOOD_OVERLAP && q >= MIN_ROUNDNESS && fastPen <= 0.05 && spike <= 0.02) break outer;
+        break; // sonst: nächste Variante probieren, vielleicht mit weniger Zipfeln
+      }
+      // Radius proportional anpassen (gedämpft)
+      radius *= Math.max(0.4, Math.min(2.5, targetM / route.distance));
+      await sleep(ITER_DELAY_MS);
+    }
+  }
+
+  if (!candidates.length) return null;
+  candidates.sort((a, b) => scoreOf(a, tol) - scoreOf(b, tol));
+  let best = candidates[0];
+  best = (await repairPinches(best, targetM, profile, tol)) || best;
+  const trimmed = await closeLoopEarly(best, startLL, targetM, profile, tol);
+  return trimmed || best;
+}
+
+/* "Schleife früher schließen": Ist die beste Route zu lang, suche einen Punkt
+   auf der Route nahe dem Start, kappe dort und route direkt zurück zum Start.
+   Der Rundkurs bleibt geschlossen, wird aber kürzer. */
+async function closeLoopEarly(cand, startLL, targetM, profile, tol) {
+  if (cand.distance <= targetM * (1 + tol)) return null;
+  const c = cand.coords, startPt = [startLL.lat, startLL.lng];
+  const cum = [0];
+  for (let i = 1; i < c.length; i++) cum.push(cum[i - 1] + segLen(c[i - 1], c[i]));
+  const total = cum[cum.length - 1];
+
+  // Kandidaten-Schnittpunkt: ab der zweiten Routenhälfte, Rückweg-Schätzung
+  // (Luftlinie × 1,3) soll die Gesamtlänge möglichst nah ans Ziel bringen.
+  let bestI = -1, bestErr = Math.abs(cand.distance - targetM);
+  for (let i = Math.floor(c.length * 0.5); i < c.length - 2; i++) {
+    const direct = segLen(c[i], startPt);
+    if (direct > total - cum[i]) continue;          // Rückweg länger als Reststrecke
+    const err = Math.abs(cum[i] + direct * 1.3 - targetM);
+    if (err < bestErr) { bestErr = err; bestI = i; }
+  }
+  if (bestI < 0) return null;
+
+  try {
+    const back = await osrmRoute([c[bestI], startPt], profile);
+    const coords = c.slice(0, bestI + 1).concat(back.coords);
+    const distance = cum[bestI] + back.distance;
+    if (Math.abs(distance - targetM) >= Math.abs(cand.distance - targetM)) return null;
+    const overlap = overlapFraction(coords);
+    if (overlap > cand.overlap + 0.03) return null; // Kürzung darf keine neuen Zipfel kosten
+    const duration = cand.duration * (cum[bestI] / total) + back.duration;
+    return { ...cand, coords, distance, duration, overlap, q: roundness(coords),
+             dev: Math.abs(distance - targetM) / targetM, trimmed: true };
+  } catch { return null; }
+}
+
+/* ================= UI-Aktionen ================= */
+function setStart(latlng, pan) {
+  start = latlng;
+  if (startMarker) startMarker.remove();
+  startMarker = L.marker(latlng, { title: "Start/Ziel" }).addTo(map)
+    .bindPopup("Start & Ziel").openPopup();
+  if (pan) map.setView(latlng, Math.max(map.getZoom(), 14));
+  setStatus("Startpunkt gesetzt. Distanz wählen und <b>Route erzeugen</b>.");
+}
+
+function clearRoute() {
+  if (routeLine) { routeLine.remove(); routeLine = null; }
+  wpMarkers.forEach(m => m.remove()); wpMarkers = [];
+  lastRoute = null;
+  gpxBtn.disabled = true; variantBtn.disabled = true; saveBtn.disabled = true;
+}
+
+function drawRoute(route) {
+  clearRoute();
+  routeLine = L.polyline(route.coords, { color: "#1d6ef5", weight: 5, opacity: 0.85 }).addTo(map);
+  route.waypoints.forEach(p => {
+    wpMarkers.push(L.circleMarker(p, { radius: 5, color: "#fff", weight: 2, fillColor: "#1d6ef5", fillOpacity: 1 }).addTo(map));
+  });
+  map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
+  lastRoute = route;
+  gpxBtn.disabled = false; variantBtn.disabled = false; saveBtn.disabled = false;
+}
+
+function fmtDist(m) {
+  return m >= 1000 ? (m / 1000).toLocaleString("de-DE", { maximumFractionDigits: 2 }) + " km"
+                   : Math.round(m) + " m";
+}
+function fmtDur(s) {
+  const h = Math.floor(s / 3600), min = Math.round((s % 3600) / 60);
+  return h ? `${h} h ${min} min` : `${min} min`;
+}
+
+async function generate(newSeedOnly) {
+  if (busy) return;
+  if (!start) { toast("Bitte zuerst einen Startpunkt setzen (📍 oder Karte antippen)."); return; }
+  const km = parseFloat(distInput.value);
+  if (!(km > 0)) { toast("Bitte eine gültige Distanz angeben."); return; }
+  if (mode === "foot" && km > 100 && !confirm(`${km} km zu Fuß – wirklich?`)) return;
+
+  busy = true;
+  genBtn.disabled = true; variantBtn.disabled = true;
+  genBtn.innerHTML = '<span class="spinner"></span> Berechne …';
+  clearRoute();
+
+  try {
+    const route = await makeRoundTrip(start, km * 1000, mode, msg => setStatus(msg));
+    if (!route) throw new Error("Keine Route gefunden – anderer Startpunkt oder kürzere Distanz?");
+    drawRoute(route);
+    const devPct = (route.dev * 100).toLocaleString("de-DE", { maximumFractionDigits: 1 });
+    const ovPct = (route.overlap * 100).toLocaleString("de-DE", { maximumFractionDigits: 1 });
+    const cls = route.dev <= settings.tolerance / 100 ? "ok" : "warn";
+    const ovCls = route.overlap <= GOOD_OVERLAP ? "ok" : "warn";
+    const note = cls === "warn" ? " – Toleranz nicht erreicht, beste gefundene Route" : "";
+    const trimNote = (route.repaired ? ` · ${route.repaired} Zipfel repariert` : "") +
+                     (route.trimmed ? " · Schleife vorzeitig geschlossen" : "");
+    setStatus(
+      `<span class="${cls}">${fmtDist(route.distance)}</span> (Ziel ${km} km, Abw. ${devPct} %)` +
+      ` · ca. ${fmtDur(route.duration)} · doppelt: <span class="${ovCls}">${ovPct} %</span>${trimNote}${note}`
+    );
+  } catch (e) {
+    setStatus(`<span class="err">${e.message}</span>`);
+  } finally {
+    busy = false;
+    genBtn.disabled = false;
+    genBtn.textContent = "Route erzeugen";
+    variantBtn.disabled = !lastRoute;
+  }
+}
+
+function escapeXml(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function downloadGPX(coords, name) {
+  const pts = coords.map(c =>
+    `      <trkpt lat="${c[0].toFixed(6)}" lon="${c[1].toFixed(6)}"></trkpt>`).join("\n");
+  const gpx = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Roundtrip" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk>
+    <name>${escapeXml(name)}</name>
+    <trkseg>
+${pts}
+    </trkseg>
+  </trk>
+</gpx>`;
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([gpx], { type: "application/gpx+xml" }));
+  a.download = (name.replace(/[^\wäöüÄÖÜß\- ]+/g, "").trim().replace(/\s+/g, "_") || "roundtrip") + ".gpx";
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function exportGPX() {
+  if (!lastRoute) return;
+  downloadGPX(lastRoute.coords, `Roundtrip ${fmtDist(lastRoute.distance)} (${mode === "foot" ? "zu Fuß" : "Auto"})`);
+}
+
+/* ================= Gespeicherte Routen ================= */
+function loadSavedRoutes() {
+  try { return JSON.parse(localStorage.getItem("roundtrip-routes")) || []; } catch { return []; }
+}
+let savedRoutes = loadSavedRoutes();
+
+function persistRoutes() {
+  try { localStorage.setItem("roundtrip-routes", JSON.stringify(savedRoutes)); return true; }
+  catch { toast("Speichern fehlgeschlagen – Speicher voll? Bitte alte Routen löschen."); return false; }
+}
+
+/* Standardname: Ortsname (Reverse-Geocoding) + Distanz + Verkehrsmittel */
+async function defaultRouteName() {
+  let place = "";
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${start.lat}&lon=${start.lng}&zoom=14`,
+      { headers: { "Accept-Language": "de" } });
+    const a = (await res.json()).address || {};
+    place = a.suburb || a.village || a.town || a.city_district || a.city || a.municipality || a.county || "";
+  } catch { /* offline → ohne Ort */ }
+  const km = (lastRoute.distance / 1000).toLocaleString("de-DE", { maximumFractionDigits: 1 });
+  return `${place ? place + " · " : ""}${km} km ${mode === "foot" ? "🚶" : "🚗"}`;
+}
+
+async function saveCurrentRoute() {
+  if (!lastRoute || !start) return;
+  saveBtn.disabled = true;
+  const name = await defaultRouteName();
+  savedRoutes.unshift({
+    id: Date.now(), name, createdAt: new Date().toISOString(),
+    mode, targetKm: parseFloat(distInput.value) || 0,
+    start: { lat: start.lat, lng: start.lng },
+    distance: lastRoute.distance, duration: lastRoute.duration, overlap: lastRoute.overlap || 0,
+    waypoints: (lastRoute.waypoints || []).map(p => [+p[0].toFixed(5), +p[1].toFixed(5)]),
+    coords: lastRoute.coords.map(c => [+c[0].toFixed(5), +c[1].toFixed(5)])
+  });
+  if (persistRoutes()) toast(`Gespeichert: „${name}" – umbenennen unter 📁`);
+  saveBtn.disabled = false;
+}
+
+function renderRoutes() {
+  const list = $("routesList");
+  list.innerHTML = "";
+  if (!savedRoutes.length) {
+    list.innerHTML = '<div style="color:var(--muted);font-size:13px;">Noch keine Routen gespeichert. Erzeuge eine Route und tippe 💾 Speichern.</div>';
+    return;
+  }
+  for (const r of savedRoutes) {
+    const div = document.createElement("div");
+    div.className = "routeItem";
+    div.innerHTML = `<div class="rname"></div><div class="rmeta"></div>
+      <div class="ractions">
+        <button class="btn primary" data-act="load">Laden</button>
+        <button class="btn" data-act="rename">✏️ Name</button>
+        <button class="btn" data-act="gpx">⬇️ GPX</button>
+        <button class="btn" data-act="del">🗑️</button>
+      </div>`;
+    div.querySelector(".rname").textContent = r.name;
+    div.querySelector(".rmeta").textContent =
+      `${new Date(r.createdAt).toLocaleDateString("de-DE")} · ${fmtDist(r.distance)} · ca. ${fmtDur(r.duration)} · ${r.mode === "foot" ? "🚶 zu Fuß" : "🚗 Auto"}`;
+    div.querySelector('[data-act=load]').onclick = () => loadSavedRoute(r);
+    div.querySelector('[data-act=rename]').onclick = () => {
+      const n = prompt("Neuer Name:", r.name);
+      if (n && n.trim()) { r.name = n.trim(); persistRoutes(); renderRoutes(); }
+    };
+    div.querySelector('[data-act=gpx]').onclick = () => downloadGPX(r.coords, r.name);
+    div.querySelector('[data-act=del]').onclick = () => {
+      if (confirm(`„${r.name}" löschen?`)) {
+        savedRoutes = savedRoutes.filter(x => x.id !== r.id);
+        persistRoutes(); renderRoutes();
+      }
+    };
+    list.appendChild(div);
+  }
+}
+
+function loadSavedRoute(r) {
+  $("routesBg").style.display = "none";
+  mode = r.mode;
+  $("modeFoot").classList.toggle("active", mode === "foot");
+  $("modeCar").classList.toggle("active", mode === "car");
+  if (r.targetKm) distInput.value = r.targetKm;
+  setStart(L.latLng(r.start.lat, r.start.lng), false);
+  drawRoute({
+    coords: r.coords, waypoints: r.waypoints || [],
+    distance: r.distance, duration: r.duration, overlap: r.overlap || 0,
+    dev: r.targetKm ? Math.abs(r.distance - r.targetKm * 1000) / (r.targetKm * 1000) : 0
+  });
+  setStatus(`📁 „${r.name}" geladen · ${fmtDist(r.distance)} · ca. ${fmtDur(r.duration)}`);
+}
+
+/* ================= Geolocation & Suche ================= */
+function locate() {
+  if (!navigator.geolocation) { toast("Geolocation wird nicht unterstützt."); return; }
+  setStatus("Ermittle Standort …");
+  navigator.geolocation.getCurrentPosition(
+    pos => setStart(L.latLng(pos.coords.latitude, pos.coords.longitude), true),
+    err => {
+      setStatus("");
+      toast("Standort nicht verfügbar (" + err.message + "). Tipp: Karte antippen oder Adresse suchen. " +
+            "Hinweis: Geolocation braucht HTTPS oder localhost.");
+    },
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+}
+
+let searchTimer = null;
+async function doSearch(q) {
+  if (q.length < 3) { searchResults.style.display = "none"; return; }
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&q=${encodeURIComponent(q)}`,
+      { headers: { "Accept-Language": "de" } });
+    const items = await res.json();
+    searchResults.innerHTML = "";
+    items.forEach(it => {
+      const div = document.createElement("div");
+      div.textContent = it.display_name;
+      div.onclick = () => {
+        searchResults.style.display = "none";
+        searchInput.value = it.display_name.split(",")[0];
+        setStart(L.latLng(+it.lat, +it.lon), true);
+      };
+      searchResults.appendChild(div);
+    });
+    searchResults.style.display = items.length ? "block" : "none";
+  } catch { /* still */ }
+}
+
+/* ================= Einstellungen ================= */
+function loadSettings() {
+  try {
+    const s = JSON.parse(localStorage.getItem("roundtrip-settings"));
+    return { tolerance: s?.tolerance ?? 5, avoidMotorway: s?.avoidMotorway ?? true };
+  } catch { return { tolerance: 5, avoidMotorway: true }; }
+}
+function saveSettings() {
+  localStorage.setItem("roundtrip-settings", JSON.stringify(settings));
+}
+
+/* ================= DOM-Verdrahtung ================= */
+const $ = id => document.getElementById(id);
+const distInput = $("distInput"), genBtn = $("genBtn"), variantBtn = $("variantBtn"),
+      gpxBtn = $("gpxBtn"), saveBtn = $("saveBtn"), locateBtn = $("locateBtn"), statusEl = $("status"),
+      searchInput = $("searchInput"), searchResults = $("searchResults"),
+      modalBg = $("modalBg"), tolInput = $("tolInput"), mwInput = $("mwInput"),
+      toastEl = $("toast");
+
+function setStatus(html) { statusEl.innerHTML = html; }
+let toastTimer = null;
+function toast(msg) {
+  toastEl.textContent = msg; toastEl.style.display = "block";
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.style.display = "none", 5000);
+}
+
+$("modeFoot").onclick = () => { mode = "foot"; $("modeFoot").classList.add("active"); $("modeCar").classList.remove("active"); };
+$("modeCar").onclick  = () => { mode = "car";  $("modeCar").classList.add("active");  $("modeFoot").classList.remove("active"); };
+
+genBtn.onclick = () => generate(false);
+variantBtn.onclick = () => generate(true);
+gpxBtn.onclick = exportGPX;
+saveBtn.onclick = saveCurrentRoute;
+locateBtn.onclick = locate;
+
+$("routesBtn").onclick = () => { renderRoutes(); $("routesBg").style.display = "flex"; };
+$("routesClose").onclick = () => $("routesBg").style.display = "none";
+$("routesBg").onclick = e => { if (e.target === $("routesBg")) $("routesBg").style.display = "none"; };
+
+searchInput.oninput = e => { clearTimeout(searchTimer); searchTimer = setTimeout(() => doSearch(e.target.value.trim()), 450); };
+document.addEventListener("click", e => { if (!$("searchWrap").contains(e.target)) searchResults.style.display = "none"; });
+
+$("gearBtn").onclick = () => {
+  tolInput.value = settings.tolerance;
+  mwInput.checked = settings.avoidMotorway;
+  modalBg.style.display = "flex";
+};
+$("modalCancel").onclick = () => modalBg.style.display = "none";
+modalBg.onclick = e => { if (e.target === modalBg) modalBg.style.display = "none"; };
+$("modalSave").onclick = () => {
+  settings.tolerance = Math.min(50, Math.max(1, parseFloat(tolInput.value) || 5));
+  settings.avoidMotorway = mwInput.checked;
+  saveSettings();
+  modalBg.style.display = "none";
+  toast(`Gespeichert: ±${settings.tolerance} % Toleranz, Autobahn ${settings.avoidMotorway ? "vermeiden" : "erlaubt"}`);
+};
+
+/* Beim Laden: Standort höflich versuchen (ohne Fehler-Toast) */
+if (navigator.geolocation && (location.protocol === "https:" || ["localhost","127.0.0.1"].includes(location.hostname))) {
+  navigator.geolocation.getCurrentPosition(
+    pos => setStart(L.latLng(pos.coords.latitude, pos.coords.longitude), true),
+    () => {}, { timeout: 6000 }
+  );
+}
+</script>
+</body>
+</html>
