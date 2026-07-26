@@ -407,6 +407,7 @@ const REQUEST_BUDGET = 20;    // max. Routing-Anfragen pro Erzeugung
 const GOOD_OVERLAP = 0.08;    // ≤8 % Nähe-Doppelstrecke = sofort akzeptieren
 const MIN_ROUNDNESS = 0.25;   // isoperimetrischer Quotient für Sofort-Akzeptanz
 const ITER_DELAY_MS = 250;    // Fairness ggü. dem freien Demo-Server
+const MAX_SNAP_M = 2000;      // weiter darf kein Wunschpunkt aufs Straßennetz rutschen
 
 /* Live-Standort */
 const LIVE_POLL_MS = 4000;       // Heartbeat: spätestens alle 4 s ein frischer Fix
@@ -417,7 +418,8 @@ const LIVE_FRESH_MS = 10000;     // so alt darf ein Fix für den Karten-Button h
 /* Höhenprofil */
 const ELEV_API = "https://api.open-meteo.com/v1/elevation";
 const ELEV_SAMPLES = 100;     // Maximum pro Anfrage bei Open-Meteo
-const ELEV_NOISE_M = 3;       // Höhenrauschen unterdrücken (Hysterese für Auf-/Abstieg)
+const ELEV_SMOOTH_M = 150;    // Glättungsfenster gegen das Rauschen des Höhenmodells
+const ELEV_NOISE_M = 2;       // Hysterese für Auf-/Abstieg (nach der Glättung)
 const ELEV_TIMEOUT_MS = 12000; // danach Abbruch, ein zweiter Versuch folgt
 
 /* Varianten */
@@ -794,6 +796,13 @@ async function searchSeed(ctx, s) {
       radius *= 0.7; continue;           // z. B. Wasser: Kreis verkleinern
     }
     if (ctx.cancelled()) break;
+    // Unsinnige Antwort verwerfen: liegt der Start z. B. im Wasser, schnappt der
+    // Router alle Punkte auf denselben weit entfernten Knoten und liefert eine
+    // Strecke von 0 m – das ist kein Rundkurs, sondern ein unroutbares Gebiet.
+    if (route.distance < 100 || (route.avgSnap || 0) > MAX_SNAP_M) {
+      if (++failures >= 2) break;
+      radius *= 0.7; continue;
+    }
     if (!ctx.plan) ctx.plan = waypointPlan(profile, route.avgSnap || 0);
     const dev = Math.abs(route.distance - targetM) / targetM;
     const analysis = overlapAnalysis(route.coords);
@@ -1186,6 +1195,22 @@ function sampleAlong(coords, n) {
   return { pts, total };
 }
 
+/* Das Höhenmodell (Copernicus, 90-m-Raster) liefert auf flachem Gelände
+   Sprünge von mehreren Metern zwischen Nachbarpunkten. Eine Hysterese allein
+   fängt das nicht ab – ein Zickzack von ±2 m ergibt Sprünge von 4 m und würde
+   sich auf jeder flachen Runde zu hunderten Höhenmetern aufaddieren. Deshalb
+   erst über ein Streckenfenster mitteln, dann summieren. Echte Anstiege ziehen
+   sich über hunderte Meter und bleiben dabei erhalten. */
+function smoothElev(elev, windowM = ELEV_SMOOTH_M) {
+  const half = windowM / 2;
+  return elev.map((s, i) => {
+    let sum = 0, n = 0;
+    for (let j = i; j >= 0 && s.d - elev[j].d <= half; j--) { sum += elev[j].e; n++; }
+    for (let j = i + 1; j < elev.length && elev[j].d - s.d <= half; j++) { sum += elev[j].e; n++; }
+    return { ...s, e: sum / n };
+  });
+}
+
 function elevStats(elev) {
   let asc = 0, desc = 0, anchor = elev[0].e, min = Infinity, max = -Infinity;
   for (const s of elev) {
@@ -1265,11 +1290,14 @@ async function loadElevation(route) {
   }
 }
 
-function renderElevation(elev) {
+function renderElevation(raw) {
   const svg = $("elevChart");
   const box = $("elevBox");
   box.classList.add("show");
   box.classList.remove("loading", "failed");
+  // Gezeichnet und gezählt wird die geglättete Reihe – roh bleibt sie nur
+  // gespeichert, damit sich die Glättung später ändern lässt.
+  const elev = smoothElev(raw);
   const st = elevStats(elev);
   const total = elev[elev.length - 1].d;
   $("elevSummary").innerHTML = `↑ <b>${Math.round(st.asc)} hm</b> · ↓ <b>${Math.round(st.desc)} hm</b>`;
@@ -1301,7 +1329,7 @@ function renderElevation(elev) {
     `<g id="elevCursor" style="display:none">` +
       `<line class="cross" y1="${y0}" y2="${y1}"/><circle class="puck" r="4"/></g>`;
 
-  elevData = { elev, total, lo, hi, x0, x1, y0, y1 };
+  elevData = { elev, raw, total, lo, hi, x0, x1, y0, y1 };
   $("elevTip").textContent = "";
 }
 
@@ -1603,7 +1631,7 @@ function renderRoutes() {
       </div>`;
     div.querySelector(".rname").textContent = r.name;
     const mm = modeMeta(r.mode);
-    const hm = r.elev && r.elev.length > 1 ? ` · ↑ ${Math.round(elevStats(r.elev).asc)} hm` : "";
+    const hm = r.elev && r.elev.length > 1 ? ` · ↑ ${Math.round(elevStats(smoothElev(r.elev)).asc)} hm` : "";
     div.querySelector(".rmeta").textContent =
       `${new Date(r.createdAt).toLocaleDateString("de-DE")} · ${fmtDist(r.distance)} · ca. ${fmtDur(r.duration)}${hm} · ${mm.emoji} ${mm.label}`;
     div.querySelector('[data-act=load]').onclick = () => loadSavedRoute(r);
@@ -1917,7 +1945,7 @@ elevChart.addEventListener("pointercancel", elevHoverEnd);
 let resizeTimer = null;
 window.addEventListener("resize", () => {
   clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(() => { if (elevData) renderElevation(elevData.elev); }, 200);
+  resizeTimer = setTimeout(() => { if (elevData) renderElevation(elevData.raw); }, 200);
 });
 
 /* ---------- Thema ---------- */

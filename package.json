@@ -1,0 +1,13 @@
+{
+  "name": "roundtrip",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Rundkurs-Planer für Fuß, Rad und Auto – eine einzelne HTML-Datei",
+  "scripts": {
+    "test": "node tests/run.js",
+    "test:live": "LIVE=1 node tests/run.js"
+  },
+  "devDependencies": {
+    "playwright": "1.56.1"
+  }
+}
