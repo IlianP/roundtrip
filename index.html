@@ -45,9 +45,10 @@
 
   /* ---------- Control panel ---------- */
   .panel{
-    position:fixed; z-index:1000; top:12px; left:12px; width:330px; max-width:calc(100vw - 24px);
+    position:fixed; z-index:1000; top:12px; left:12px; width:400px; max-width:calc(100vw - 24px);
     background:var(--bg); border-radius:var(--radius); box-shadow:var(--card-shadow);
     padding:14px 16px; display:flex; flex-direction:column; gap:10px;
+    container-type:inline-size; container-name:panel;   /* Grundlage der Platz-Abfragen unten */
   }
   .panel h1{font-size:17px; display:flex; align-items:center; justify-content:space-between; gap:8px;}
   .panel h1 .gear{cursor:pointer; border:none; background:none; font-size:18px; line-height:1; padding:4px; color:inherit;}
@@ -93,6 +94,17 @@
   .btn-row{display:flex; gap:8px;}
   .btn-row .btn{flex:1;}
 
+  /* ---------- Enger Platz: Beschriftung weg, Symbol bleibt ----------
+     Die Dreierreihe braucht rund 360 px Inhaltsbreite für vollen Text.
+     Wird es enger (schmales Handy), sprechen die Symbole für sich; auf
+     Tablet und Desktop bleibt die Beschriftung stehen. */
+  @container panel (max-width: 366px){
+    .btn.iconic .lbl, .seg button .lbl{display:none;}
+    .btn.iconic{font-size:18px; padding-left:8px; padding-right:8px;}
+    .seg button{font-size:18px; padding:8px 0;}
+    #locateBtn{flex:0 0 auto;}          /* „Route erzeugen“ bekommt den Platz */
+  }
+
   #status{font-size:13px; color:var(--muted); min-height:18px; line-height:1.45;}
   #status .ok{color:var(--ok); font-weight:600;}
   #status .warn{color:var(--warn); font-weight:600;}
@@ -118,6 +130,8 @@
   .vchip:hover{background:var(--surface-2);}
   .vchip.active{border-color:var(--accent); color:var(--fg); font-weight:600;}
   .vchip.active .dot{background:var(--accent);}
+  .vchip.pending{cursor:default; border-style:dashed;}
+  .vchip.pending:hover{background:var(--bg);}
 
   /* ---------- Höhenprofil ---------- */
   #elevBox{display:none; flex-direction:column; gap:2px;}
@@ -125,6 +139,9 @@
   #elevHead{display:flex; justify-content:space-between; align-items:baseline; font-size:12px; color:var(--muted);}
   #elevHead b{color:var(--fg); font-weight:600;}
   #elevChart{width:100%; height:78px; display:block; touch-action:none; cursor:crosshair;}
+  #elevBox.failed #elevChart, #elevBox.loading #elevChart{display:none;}
+  .linkbtn{border:none; background:none; padding:0; font-size:12px; color:var(--accent);
+    cursor:pointer; text-decoration:underline;}
   #elevChart .area{fill:var(--accent); opacity:.14;}
   #elevChart .line{fill:none; stroke:var(--accent); stroke-width:2; stroke-linejoin:round; stroke-linecap:round;}
   #elevChart .grid{stroke:var(--grid); stroke-width:1;}
@@ -148,7 +165,9 @@
   #routesModal{
     background:var(--bg); border-radius:var(--radius); padding:20px; width:420px; max-width:calc(100vw - 32px);
     max-height:80vh; overflow:auto; display:flex; flex-direction:column; gap:10px; box-shadow:var(--card-shadow);
+    container-type:inline-size; container-name:routes;
   }
+  @container routes (max-width: 330px){ .routeItem .ractions .btn .lbl{display:none;} }
   #routesModal h2{font-size:16px;}
   .routeItem{border:1px solid var(--border); border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:6px;}
   .routeItem .rname{font-weight:600; font-size:14px; word-break:break-word;}
@@ -276,21 +295,21 @@
       <div style="flex:1.6">
         <label class="small">Verkehrsmittel</label>
         <div class="seg">
-          <button id="modeFoot" class="active" title="Zu Fuß">🚶 Fuß</button>
-          <button id="modeBike" title="Fahrrad">🚴 Rad</button>
-          <button id="modeCar" title="Auto">🚗 Auto</button>
+          <button id="modeFoot" class="active" title="Zu Fuß" aria-label="Zu Fuß">🚶<span class="lbl"> Fuß</span></button>
+          <button id="modeBike" title="Fahrrad" aria-label="Fahrrad">🚴<span class="lbl"> Rad</span></button>
+          <button id="modeCar" title="Auto" aria-label="Auto">🚗<span class="lbl"> Auto</span></button>
         </div>
       </div>
     </div>
 
     <div class="btn-row">
-      <button class="btn" id="locateBtn" title="Eigenen Standort verwenden">📍 Standort</button>
+      <button class="btn iconic" id="locateBtn" title="Eigenen Standort verwenden" aria-label="Eigenen Standort verwenden">📍<span class="lbl"> Standort</span></button>
       <button class="btn primary" id="genBtn">Route erzeugen</button>
     </div>
     <div class="btn-row">
-      <button class="btn" id="variantBtn" disabled title="Neue Vorschläge in anderen Richtungen">🎲 Würfeln</button>
-      <button class="btn" id="saveBtn" disabled>💾 Speichern</button>
-      <button class="btn" id="shareBtn" disabled>📤 Teilen</button>
+      <button class="btn iconic" id="variantBtn" disabled title="Neue Vorschläge in anderen Richtungen" aria-label="Neu würfeln">🎲<span class="lbl"> Würfeln</span></button>
+      <button class="btn iconic" id="saveBtn" disabled title="Route speichern" aria-label="Route speichern">💾<span class="lbl"> Speichern</span></button>
+      <button class="btn iconic" id="shareBtn" disabled title="Teilen und navigieren" aria-label="Teilen und navigieren">📤<span class="lbl"> Teilen</span></button>
     </div>
 
     <div id="variants"></div>
@@ -399,9 +418,13 @@ const LIVE_FRESH_MS = 10000;     // so alt darf ein Fix für den Karten-Button h
 const ELEV_API = "https://api.open-meteo.com/v1/elevation";
 const ELEV_SAMPLES = 100;     // Maximum pro Anfrage bei Open-Meteo
 const ELEV_NOISE_M = 3;       // Höhenrauschen unterdrücken (Hysterese für Auf-/Abstieg)
+const ELEV_TIMEOUT_MS = 12000; // danach Abbruch, ein zweiter Versuch folgt
 
 /* Varianten */
 const MAX_VARIANTS = 3;
+
+/* Teilen: Genauigkeit der Linien-Vereinfachung im Link */
+const SHARE_TOL_M = 4;
 
 /* ================= State ================= */
 let settings = loadSettings();
@@ -414,7 +437,9 @@ let busy = false;
 
 /* Varianten-State */
 let routeCtx = {};            // {targetM, profile, tol, km} der aktuellen Erzeugung
-let variants = [];            // bis zu 3 Kandidaten, bester zuerst
+let genToken = 0;             // macht eine laufende Hintergrundsuche ungültig
+let searching = false;        // Hintergrundsuche nach weiteren Vorschlägen läuft
+let variants = [];            // bis zu 3 Kandidaten, erster zuerst gefunden
 let activeVariant = 0;
 let ghostLines = [];          // dünne Linien der nicht aktiven Varianten
 let suppressMapClick = false; // Klick auf eine Ghost-Linie setzt keinen Startpunkt
@@ -740,89 +765,120 @@ function waypointPlan(profile, avgSnap) {
   return rural ? [3, 4, 5, 3, 4] : [4, 5, 6, 4, 3];
 }
 
-async function makeRoundTrip(startLL, targetM, profile, onProgress) {
-  const tol = settings.tolerance / 100;
-  const candidates = [];
-  let requests = 0, plan = null, goodSeeds = 0;
+/* Eine Richtung absuchen: Wegpunkte auf den Kreis setzen, Route rechnen,
+   Radius nachziehen, Zipfel-Wegpunkte amputieren. Liefert den besten
+   Kandidaten dieser Richtung samt Angabe, ob er sauber genug ist. */
+async function searchSeed(ctx, s) {
+  const { startLL, targetM, profile, tol } = ctx;
+  const seed = lastSeed = {
+    bearing: (ctx.baseBearing + s * 360 / MAX_SEEDS) % 360,
+    dir: s % 2 ? -1 : 1
+  };
+  let radius = targetM / (2 * Math.PI);
+  let failures = 0;
+  const skip = new Set();      // amputierte Wegpunkt-Winkel dieser Richtung
+  let best = null, clean = false;
 
+  for (let i = 0; i < MAX_ITER; i++) {
+    if (ctx.requests >= REQUEST_BUDGET || ctx.cancelled()) break;
+    const nWp = ctx.plan ? ctx.plan[s % ctx.plan.length] : (profile === "car" ? 5 : 4);
+    ctx.onProgress(`Suche Rundkurse … (Richtung ${s + 1}, Runde ${i + 1})`);
+    const { pts: wps, ks } = circleWaypoints(startLL, radius, seed.bearing, nWp, seed.dir, skip);
+    if (wps.length < 2) break;
+    let route;
+    try {
+      ctx.requests++;
+      route = await osrmRoute([[startLL.lat, startLL.lng], ...wps, [startLL.lat, startLL.lng]], profile);
+    } catch (e) {
+      if (++failures >= 2) break;        // Gebiet vermutlich unroutbar → neue Richtung
+      radius *= 0.7; continue;           // z. B. Wasser: Kreis verkleinern
+    }
+    if (ctx.cancelled()) break;
+    if (!ctx.plan) ctx.plan = waypointPlan(profile, route.avgSnap || 0);
+    const dev = Math.abs(route.distance - targetM) / targetM;
+    const analysis = overlapAnalysis(route.coords);
+    const overlap = analysis.fraction;
+    const q = roundness(route.coords);
+    const fastPen = (profile === "car" && settings.avoidMotorway) ? route.fastFrac * 0.6 : 0;
+    const pinch = findWorstPinch(route.coords);
+    const spike = pinch ? pinch.saving / route.distance : 0;
+    const cand = { ...route, dev, overlap, q, fastPen, spike, waypoints: wps, seedIdx: s };
+    if (!best || scoreOf(cand, tol) < scoreOf(best, tol)) best = cand;
+
+    // Zipfel-Chirurgie: Wegpunkt auslassen, der eine Stichfahrt erzwingt —
+    // erkannt über Doppelstrecken-Legs ODER über die Pinch-Geometrie
+    // (Wegpunkt liegt im Zipfel-Abschnitt zwischen den Halspunkten).
+    // Die Radius-Anpassung gleicht die fehlende Länge danach automatisch aus.
+    let operated = false;
+    if (skip.size < 2) {
+      let bad = -1;
+      if (overlap > GOOD_OVERLAP) bad = spurWaypointIndex(analysis.samples, route.legDist);
+      if (bad < 0 && spike > 0.02 && pinch && route.legDist?.length > 2) {
+        const bounds = [0];
+        for (const d of route.legDist) bounds.push(bounds[bounds.length - 1] + d);
+        for (let j = 0; j < route.legDist.length - 1; j++) {
+          if (bounds[j + 1] > pinch.a.pos && bounds[j + 1] < pinch.b.pos) { bad = j; break; }
+        }
+      }
+      if (bad >= 0) { skip.add(ks[bad]); operated = true; }
+    }
+
+    if (dev <= tol && !operated) {
+      // Distanz passt – zusätzlich praktisch zipfelfrei, rund und ohne Schnellstraße?
+      clean = overlap <= GOOD_OVERLAP && q >= MIN_ROUNDNESS && fastPen <= 0.05 && spike <= 0.02;
+      break;
+    }
+    // Radius proportional anpassen (gedämpft)
+    radius *= Math.max(0.4, Math.min(2.5, targetM / route.distance));
+    await sleep(ITER_DELAY_MS);
+  }
+  return best ? { cand: best, clean } : null;
+}
+
+/* Erste Phase: nur so lange suchen, bis eine brauchbare Route dasteht –
+   die wird sofort angezeigt. Weitere Richtungen sucht collectVariants()
+   danach im Hintergrund ab, ohne die Bedienung zu blockieren. */
+async function makeRoundTrip(startLL, targetM, profile, onProgress, cancelled) {
+  const tol = settings.tolerance / 100;
+  const softCap = Math.max(tol, 0.10);
   // Richtungen gleichmäßig über 360° verteilen (statt rein zufällig) —
   // so liegt garantiert eine Variante z. B. ganz abseits eines Flusses.
-  const baseBearing = Math.random() * 360;
+  const ctx = { startLL, targetM, profile, tol, onProgress, cancelled,
+                requests: 0, plan: null, baseBearing: Math.random() * 360 };
 
-  outer:
-  for (let s = 0; s < MAX_SEEDS; s++) {
-    const seed = lastSeed = {
-      bearing: (baseBearing + s * 360 / MAX_SEEDS) % 360,
-      dir: s % 2 ? -1 : 1
-    };
-    let radius = targetM / (2 * Math.PI);
-    let failures = 0;
-    const skip = new Set(); // amputierte Wegpunkt-Winkel dieser Variante
-
-    for (let i = 0; i < MAX_ITER; i++) {
-      if (requests >= REQUEST_BUDGET) break outer;
-      const nWp = plan ? plan[s % plan.length] : (profile === "car" ? 5 : 4);
-      onProgress(`Suche Rundkurse … (Richtung ${s + 1}, Runde ${i + 1})`);
-      const { pts: wps, ks } = circleWaypoints(startLL, radius, seed.bearing, nWp, seed.dir, skip);
-      if (wps.length < 2) break;
-      let route;
-      try {
-        requests++;
-        route = await osrmRoute([[startLL.lat, startLL.lng], ...wps, [startLL.lat, startLL.lng]], profile);
-      } catch (e) {
-        if (++failures >= 2) break;        // Gebiet vermutlich unroutbar → neue Richtung
-        radius *= 0.7; continue;           // z. B. Wasser: Kreis verkleinern
-      }
-      if (!plan) plan = waypointPlan(profile, route.avgSnap || 0);
-      const dev = Math.abs(route.distance - targetM) / targetM;
-      const analysis = overlapAnalysis(route.coords);
-      const overlap = analysis.fraction;
-      const q = roundness(route.coords);
-      const fastPen = (profile === "car" && settings.avoidMotorway) ? route.fastFrac * 0.6 : 0;
-      const pinch = findWorstPinch(route.coords);
-      const spike = pinch ? pinch.saving / route.distance : 0;
-      const cand = { ...route, dev, overlap, q, fastPen, spike, waypoints: wps, seedIdx: s };
-      candidates.push(cand);
-
-      // Zipfel-Chirurgie: Wegpunkt auslassen, der eine Stichfahrt erzwingt —
-      // erkannt über Doppelstrecken-Legs ODER über die Pinch-Geometrie
-      // (Wegpunkt liegt im Zipfel-Abschnitt zwischen den Halspunkten).
-      // Die Radius-Anpassung gleicht die fehlende Länge danach automatisch aus.
-      let operated = false;
-      if (skip.size < 2) {
-        let bad = -1;
-        if (overlap > GOOD_OVERLAP) bad = spurWaypointIndex(analysis.samples, route.legDist);
-        if (bad < 0 && spike > 0.02 && pinch && route.legDist?.length > 2) {
-          const bounds = [0];
-          for (const d of route.legDist) bounds.push(bounds[bounds.length - 1] + d);
-          for (let j = 0; j < route.legDist.length - 1; j++) {
-            if (bounds[j + 1] > pinch.a.pos && bounds[j + 1] < pinch.b.pos) { bad = j; break; }
-          }
-        }
-        if (bad >= 0) { skip.add(ks[bad]); operated = true; }
-      }
-
-      if (dev <= tol && !operated) {
-        // Distanz passt. Praktisch zipfelfrei, rund und ohne Schnellstraße?
-        // Dann ist diese Richtung erledigt – gesucht wird trotzdem weiter, bis
-        // genug *verschiedene* Vorschläge zur Auswahl stehen.
-        const clean = overlap <= GOOD_OVERLAP && q >= MIN_ROUNDNESS && fastPen <= 0.05 && spike <= 0.02;
-        if (clean && ++goodSeeds >= MAX_VARIANTS) break outer;
-        break; // nächste Richtung probieren
-      }
-      // Radius proportional anpassen (gedämpft)
-      radius *= Math.max(0.4, Math.min(2.5, targetM / route.distance));
-      await sleep(ITER_DELAY_MS);
-    }
+  let best = null, s = 0;
+  for (; s < MAX_SEEDS; s++) {
+    if (ctx.requests >= REQUEST_BUDGET || cancelled()) break;
+    const r = await searchSeed(ctx, s);
+    if (cancelled()) return null;
+    if (r && (!best || scoreOf(r.cand, tol) < scoreOf(best, tol))) best = r.cand;
+    if (r && r.cand.dev <= softCap) { s++; break; }   // gut genug – nicht länger warten lassen
   }
+  if (!best) return null;
+  return { cand: await polish(best, startLL, targetM, profile, tol), ctx, nextSeed: s };
+}
 
-  if (!candidates.length) return null;
-  candidates.sort((a, b) => scoreOf(a, tol) - scoreOf(b, tol));
-  const picked = pickVariants(candidates, targetM, tol);
-  // Nur die beste Route wird sofort nachbearbeitet – das spart Anfragen.
-  // Die übrigen Varianten werden erst poliert, wenn man sie auswählt.
-  picked[0] = await polish(picked[0], startLL, targetM, profile, tol);
-  return picked;
+/* Zweite Phase: läuft im Hintergrund weiter und meldet jede zusätzliche,
+   deutlich andere Route per Rückruf. Der Fortschritt landet bewusst nicht
+   in der Statuszeile – dort steht das Ergebnis, das schon nutzbar ist. */
+async function collectVariants(ctx, fromSeed, onVariant) {
+  ctx.onProgress = () => {};
+  for (let s = fromSeed; s < MAX_SEEDS; s++) {
+    if (ctx.requests >= REQUEST_BUDGET || ctx.cancelled()) return;
+    const r = await searchSeed(ctx, s);
+    if (ctx.cancelled()) return;
+    if (r && isDistinctVariant(r.cand, ctx.tol) && onVariant(r.cand) >= MAX_VARIANTS) return;
+  }
+}
+
+/* Zwei Vorschläge sind nur dann zwei, wenn sie räumlich auseinanderliegen –
+   und ein deutlich schlechterer Kandidat wird gar nicht erst angeboten. */
+function isDistinctVariant(cand, tol) {
+  if (!variants.length) return true;
+  const minSep = (routeCtx.targetM / (2 * Math.PI)) * 0.6;   // grob ein halber Schleifenradius
+  const ctr = centroidOf(cand);
+  if (variants.some(v => segLen(centroidOf(v), ctr) < minSep)) return false;
+  return scoreOf(cand, tol) <= scoreOf(variants[0], tol) + 0.35;
 }
 
 /* Schwerpunkt einer Route – dient dem Vergleich, ob zwei Kandidaten
@@ -832,21 +888,6 @@ function centroidOf(cand) {
   let lat = 0, lon = 0;
   for (const c of cand.coords) { lat += c[0]; lon += c[1]; }
   return (cand._ctr = [lat / cand.coords.length, lon / cand.coords.length]);
-}
-
-/* Bis zu drei *unterschiedliche* Vorschläge: verschiedene Ausgangsrichtungen und
-   räumlich klar getrennte Schleifen – sonst bekäme man dreimal fast dasselbe. */
-function pickVariants(sorted, targetM, tol) {
-  const minSep = (targetM / (2 * Math.PI)) * 0.6;   // grob ein halber Schleifenradius
-  const out = [];
-  for (const c of sorted) {
-    if (out.length >= MAX_VARIANTS) break;
-    if (scoreOf(c, tol) > scoreOf(sorted[0], tol) + 0.35) break;   // deutlich schlechter → nicht anbieten
-    const ctr = centroidOf(c);
-    const dup = out.some(o => o.seedIdx === c.seedIdx || segLen(centroidOf(o), ctr) < minSep);
-    if (!dup) out.push(c);
-  }
-  return out.length ? out : [sorted[0]];
 }
 
 /* Nachbearbeitung: Zipfel reparieren und ggf. die Schleife früher schließen. */
@@ -894,6 +935,7 @@ async function closeLoopEarly(cand, startLL, targetM, profile, tol) {
 
 /* ================= UI-Aktionen ================= */
 function setStart(latlng, pan) {
+  cancelSearch();          // laufende Suche gehört zum alten Startpunkt
   start = latlng;
   if (startMarker) startMarker.remove();
   startMarker = L.marker(latlng, { title: "Start/Ziel" }).addTo(map)
@@ -952,7 +994,7 @@ function drawGhosts() {
 function renderVariantChips() {
   const box = $("variants");
   box.innerHTML = "";
-  if (variants.length < 2) { box.classList.remove("show"); return; }
+  if (variants.length < 2 && !(searching && variants.length)) { box.classList.remove("show"); return; }
   variants.forEach((v, i) => {
     const b = document.createElement("button");
     b.className = "vchip" + (i === activeVariant ? " active" : "");
@@ -963,6 +1005,13 @@ function renderVariantChips() {
     b.onclick = () => activateVariant(i);
     box.appendChild(b);
   });
+  if (searching) {
+    const p = document.createElement("span");
+    p.className = "vchip pending";
+    p.innerHTML = '<span class="spinner spinner-inline"></span>';
+    p.appendChild(document.createTextNode("weitere Vorschläge …"));
+    box.appendChild(p);
+  }
   box.classList.add("show");
 }
 
@@ -1009,6 +1058,13 @@ function fmtDur(s) {
   return h ? `${h} h ${min} min` : `${min} min`;
 }
 
+/* Beendet eine laufende Hintergrundsuche (neue Erzeugung, neuer Startpunkt,
+   geladene Route). Die alte Suche merkt das am veralteten Token. */
+function cancelSearch() {
+  genToken++;
+  if (searching) { searching = false; renderVariantChips(); }
+}
+
 async function generate() {
   if (busy) return;
   if (!start) { toast("Bitte zuerst einen Startpunkt setzen (📍 oder Karte antippen)."); return; }
@@ -1017,6 +1073,10 @@ async function generate() {
   const meta = modeMeta(mode);
   if (km > meta.warnKm && !confirm(`${km} km ${meta.label} – wirklich?`)) return;
 
+  cancelSearch();
+  const token = genToken;
+  const cancelled = () => token !== genToken;
+
   busy = true;
   genBtn.disabled = true; variantBtn.disabled = true;
   genBtn.innerHTML = '<span class="spinner"></span> Berechne …';
@@ -1024,19 +1084,40 @@ async function generate() {
   routeCtx = { targetM: km * 1000, profile: mode, tol: settings.tolerance / 100, km };
 
   try {
-    const found = await makeRoundTrip(start, km * 1000, mode, msg => setStatus(msg));
-    if (!found || !found.length) throw new Error("Keine Route gefunden – anderer Startpunkt oder kürzere Distanz?");
-    variants = found; activeVariant = 0;
-    drawRoute(found[0]);
-    showRouteStatus(found[0]);
+    const res = await makeRoundTrip(start, km * 1000, mode, msg => { if (!cancelled()) setStatus(msg); }, cancelled);
+    if (cancelled()) return;
+    if (!res) throw new Error("Keine Route gefunden – anderer Startpunkt oder kürzere Distanz?");
+    variants = [res.cand]; activeVariant = 0;
+    drawRoute(res.cand);
+    showRouteStatus(res.cand);
+    searchMoreVariants(res.ctx, res.nextSeed);   // läuft weiter, während die Route schon steht
   } catch (e) {
-    setStatus(`<span class="err">${e.message}</span>`);
+    if (!cancelled()) setStatus(`<span class="err">${e.message}</span>`);
   } finally {
     busy = false;
     genBtn.disabled = false;
     genBtn.textContent = "Route erzeugen";
     variantBtn.disabled = !lastRoute;
   }
+}
+
+/* Weitere Vorschläge im Hintergrund – jeder Fund erscheint als Chip und als
+   gestrichelte Linie, ohne die schon angezeigte Route anzutasten. */
+function searchMoreVariants(ctx, fromSeed) {
+  if (fromSeed >= MAX_SEEDS || ctx.requests >= REQUEST_BUDGET) return;
+  searching = true;
+  renderVariantChips();
+  collectVariants(ctx, fromSeed, cand => {
+    variants.push(cand);
+    drawGhosts();
+    renderVariantChips();
+    if (!busy && lastRoute) showRouteStatus(lastRoute);   // „Variante 1/2“ nachziehen
+    return variants.length;
+  }).catch(() => {}).finally(() => {
+    if (ctx.cancelled()) return;
+    searching = false;
+    renderVariantChips();
+  });
 }
 
 function escapeXml(s) {
@@ -1125,24 +1206,40 @@ function hideElevation() {
   if (elevMarker) { elevMarker.remove(); elevMarker = null; }
 }
 
+/* Der freie Höhen-Dienst hängt gelegentlich; ohne Abbruch bliebe die Anzeige
+   ewig auf „wird geladen“ stehen. Also: Zeitlimit und ein zweiter Versuch. */
+async function fetchElev(url) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), ELEV_TIMEOUT_MS);
+    try {
+      const res = await fetch(url, { signal: ctrl.signal });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return await res.json();
+    } catch (e) {
+      if (attempt) throw e;
+      await sleep(800);
+    } finally { clearTimeout(timer); }
+  }
+}
+
 async function loadElevation(route) {
   const seq = ++elevSeq;
   if (route.elev && route.elev.length > 1) { renderElevation(route.elev); return; }
   if (!route.coords || route.coords.length < 2) return;
   const box = $("elevBox");
-  box.classList.add("show");
-  $("elevSummary").textContent = "Höhenprofil wird geladen …";
+  box.classList.add("show", "loading");
+  box.classList.remove("failed");
+  $("elevSummary").innerHTML = '<span class="spinner spinner-inline"></span> Höhenprofil wird geladen …';
   $("elevRange").textContent = "";
   $("elevChart").innerHTML = "";
   try {
     const { pts } = sampleAlong(route.coords, ELEV_SAMPLES);
     const lat = pts.map(p => p.lat.toFixed(5)).join(",");
     const lon = pts.map(p => p.lon.toFixed(5)).join(",");
-    const res = await fetch(`${ELEV_API}?latitude=${lat}&longitude=${lon}`);
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    const data = await res.json();
+    const data = await fetchElev(`${ELEV_API}?latitude=${lat}&longitude=${lon}`);
     if (seq !== elevSeq) return;                       // inzwischen andere Route
-    if (!Array.isArray(data.elevation)) throw new Error("keine Daten");
+    if (!data || !Array.isArray(data.elevation)) throw new Error("keine Daten");
     const elev = [];
     let lastE = null;
     pts.forEach((p, i) => {
@@ -1157,7 +1254,14 @@ async function loadElevation(route) {
     renderElevation(elev);
   } catch (e) {
     if (seq !== elevSeq) return;
-    box.classList.remove("show");
+    // Nicht spurlos verschwinden lassen – der Dienst ist nur gerade nicht erreichbar
+    box.classList.add("failed");
+    box.classList.remove("loading");
+    $("elevSummary").textContent = "Höhenprofil nicht verfügbar";
+    $("elevRange").innerHTML = '<button class="linkbtn" type="button" id="elevRetry">erneut versuchen</button>';
+    $("elevRetry").onclick = () => loadElevation(route);
+    $("elevChart").innerHTML = "";
+    $("elevTip").textContent = "";
   }
 }
 
@@ -1165,6 +1269,7 @@ function renderElevation(elev) {
   const svg = $("elevChart");
   const box = $("elevBox");
   box.classList.add("show");
+  box.classList.remove("loading", "failed");
   const st = elevStats(elev);
   const total = elev[elev.length - 1].d;
   $("elevSummary").innerHTML = `↑ <b>${Math.round(st.asc)} hm</b> · ↓ <b>${Math.round(st.desc)} hm</b>`;
@@ -1310,11 +1415,14 @@ function simplifyPath(coords, tolM) {
   return coords.filter((_, i) => keep[i]);
 }
 
+/* Der Verlauf wird geglättet (4 m Toleranz) – Länge und Fahrzeit stehen
+   deshalb als echte Werte mit im Link, statt aus der geglätteten Linie
+   zurückgerechnet zu werden. */
 function shareUrl(route) {
-  const poly = encodePath(simplifyPath(route.coords, 8));
+  const poly = encodePath(simplifyPath(route.coords, SHARE_TOL_M));
   const km = routeCtx.km || route.distance / 1000;
   return location.origin + location.pathname +
-    `#r=1~${mode}~${(+km).toFixed(1)}~${Math.round(route.duration || 0)}~${poly}`;
+    `#r=1~${mode}~${(+km).toFixed(1)}~${Math.round(route.duration || 0)}~${Math.round(route.distance)}~${poly}`;
 }
 
 /* Google Maps kennt maximal ~9 Zwischenziele – die Schleife wird also
@@ -1360,17 +1468,17 @@ async function shareRoute() {
   downloadGPX(lastRoute.coords, name);   // Desktop ohne Web Share: einfach die Datei
 }
 
-/* Geteilten Link beim Start öffnen: #r=1~modus~km~dauer~verlauf */
+/* Geteilten Link beim Start öffnen: #r=1~modus~km~dauer~meter~verlauf */
 function loadFromHash() {
-  const m = /^#r=1~([a-z]+)~([\d.]*)~(\d*)~(.+)$/.exec(location.hash);
+  const m = /^#r=1~([a-z]+)~([\d.]*)~(\d*)~(\d*)~(.+)$/.exec(location.hash);
   if (!m) return false;
-  const coords = decodePath(m[4]);
+  const coords = decodePath(m[5]);
   if (coords.length < 2) return false;
   setMode(MODES[m[1]] ? m[1] : "foot");
   const km = parseFloat(m[2]);
   if (km > 0) distInput.value = km;
-  let dist = 0;
-  for (let i = 1; i < coords.length; i++) dist += segLen(coords[i - 1], coords[i]);
+  let dist = parseInt(m[4], 10) || 0;
+  if (!dist) for (let i = 1; i < coords.length; i++) dist += segLen(coords[i - 1], coords[i]);
   const duration = parseInt(m[3], 10) || 0;
   routeCtx = { targetM: (km > 0 ? km : dist / 1000) * 1000, profile: mode,
                tol: settings.tolerance / 100, km: km > 0 ? km : dist / 1000 };
@@ -1489,9 +1597,9 @@ function renderRoutes() {
     div.innerHTML = `<div class="rname"></div><div class="rmeta"></div>
       <div class="ractions">
         <button class="btn primary" data-act="load">Laden</button>
-        <button class="btn" data-act="rename">✏️ Name</button>
-        <button class="btn" data-act="gpx">⬇️ GPX</button>
-        <button class="btn" data-act="del">🗑️</button>
+        <button class="btn" data-act="rename" title="Umbenennen" aria-label="Umbenennen">✏️<span class="lbl"> Name</span></button>
+        <button class="btn" data-act="gpx" title="Als GPX herunterladen" aria-label="Als GPX herunterladen">⬇️<span class="lbl"> GPX</span></button>
+        <button class="btn" data-act="del" title="Löschen" aria-label="Löschen">🗑️</button>
       </div>`;
     div.querySelector(".rname").textContent = r.name;
     const mm = modeMeta(r.mode);
