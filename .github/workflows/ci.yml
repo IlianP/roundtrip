@@ -1,0 +1,42 @@
+name: Tests
+
+# Läuft bei jedem Push und bei jedem Pull Request. Damit die Tests vor einem
+# Merge zwingend grün sein müssen, muss "Tests / browser" in den
+# Repository-Einstellungen als erforderliche Prüfung eingetragen werden:
+# Settings → Branches → Branch protection rule für "main" → "Require status
+# checks to pass before merging" → Tests / browser auswählen.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  browser:
+    name: browser
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Abhängigkeiten
+        run: npm ci --no-audit --no-fund
+
+      - name: Chromium bereitstellen
+        run: npx playwright install --with-deps chromium
+
+      # Ohne Netzzugang zu OSRM/Open-Meteo: die Antworten kommen aus
+      # tests/stub.js, damit der Lauf deterministisch ist und die freien
+      # Dienste nicht bei jedem Push belastet werden.
+      - name: Tests
+        run: npm test
+
+      - name: HTML-Größe protokollieren
+        if: always()
+        run: |
+          echo "index.html: $(wc -c < index.html) Bytes" >> "$GITHUB_STEP_SUMMARY"
