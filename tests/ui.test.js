@@ -8,6 +8,14 @@ module.exports = async function run(env) {
   const t = suite("Bedienung");
   const long = LIVE ? 180000 : 30000;
   const page = await env.newPage();
+  // Routing-Antworten leicht bremsen. Ohne das ist die Hintergrundsuche auf
+  // einem schnellen Rechner schon fertig, bevor eine Prüfung hinsehen kann –
+  // die Suche wäre dann nicht beobachtbar und der Test würde grundlos scheitern.
+  await page.route("**/route/v1/**", async route => {
+    await new Promise(r => setTimeout(r, 150));
+    return route.fallback();
+  });
+
   await page.goto(env.url, { waitUntil: "load" });
   await page.waitForFunction(() => typeof window.L !== "undefined", { timeout: 20000 });
 
@@ -206,9 +214,9 @@ module.exports = async function run(env) {
   await page.evaluate(s => { setMode("foot"); setStart(L.latLng(s[0], s[1]), false); }, START);
   await page.fill("#distInput", "3");
   await page.click("#genBtn");
-  await page.waitForFunction(() => !busy && lastRoute && searching, { timeout: long });
+  await page.waitForFunction(() => !busy && lastRoute, { timeout: long });
   const tok = await page.evaluate(() => genToken);
-  await page.click("#genBtn");
+  await page.click("#genBtn");                       // mitten in der Nachsuche neu würfeln
   await page.waitForFunction(() => !busy && lastRoute, { timeout: long });
   await page.waitForTimeout(1000);
   const after = await page.evaluate(() => ({ tok: genToken, n: variants.length, act: activeVariant }));
