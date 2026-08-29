@@ -197,9 +197,13 @@ Suche das Ausweichen geometrisch:
 
 1. **Direkter Rückweg** zuerst. Oft führt der Router ohnehin anders zurück;
    dann ist die Suche nach einer Anfrage vorbei. Er dient außerdem als Maßstab
-   für den Umweg der folgenden Kandidaten. Weil dieser Maßstab nur an Start und
-   Ziel hängt, wird er zwischengespeichert (`returnBase`): „Anderer Rückweg"
-   fragt ihn nicht noch einmal an, sondern steckt alle Anfragen in die Bögen.
+   für den Umweg der folgenden Kandidaten. Weil dieser Maßstab nur an Start,
+   Ziel und Verkehrsmittel hängt, wird er zwischengespeichert (`returnBase`):
+   „Anderer Rückweg" fragt ihn nicht noch einmal an, sondern steckt alle
+   Anfragen in die Bögen. Ein Wechsel des Verkehrsmittels entwertet den Cache.
+   Bleibt am Ende kein einziger Bogen übrig (Router streikt, Wunschpunkte
+   nicht routbar), wird der direkte Weg nachgeholt – die Karte ist für die
+   Suche schon geleert worden und darf nicht leer bleiben.
 2. **Bögen**: `arcWaypoints` verteilt Zwischenpunkte entlang der Luftlinie und
    lenkt sie senkrecht dazu aus; `skew` verschiebt den Scheitel der Wölbung.
    `returnPlan` legt die Stufen fest – von schmal nach weit, im Wechsel

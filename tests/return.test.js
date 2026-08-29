@@ -203,18 +203,30 @@ module.exports = async function run(env) {
      der größere Bogen überhaupt in Frage kommt. */
   const plan = await page.evaluate(() => {
     const key = p => p.map(s => `${s.side}|${s.f.toFixed(3)}|${s.n}|${s.skew.toFixed(3)}`).join(",");
+    // Die Stufen, wie returnPlan sie aufspannt – schmal, mittel, weit
+    const STAGES = [[0.30, 0.55], [0.30, 0.55], [0.6, 1.0], [0.6, 1.0], [1.1, 1.7], [1.1, 1.7]];
     const a = returnPlan(1), b = returnPlan(1);
+    // Über 200 Pläne prüfen, ob je eine Auslenkung aus ihrer Stufe fällt –
+    // die Bereiche selbst sind fest, gewürfelt wird nur innerhalb.
+    let outOfRange = 0;
+    for (let i = 0; i < 200; i++)
+      returnPlan(1).forEach((s, k) => { if (s.f < STAGES[k][0] || s.f > STAGES[k][1]) outOfRange++; });
     return {
       differs: key(a) !== key(b),
       sides: new Set(a.map(s => s.side)).size,
-      spread: Math.max(...a.map(s => s.f)) / Math.min(...a.map(s => s.f)),
+      outOfRange,
+      // Garantierter Abstand zwischen der schmalsten und der weitesten Stufe
+      guaranteedSpread: STAGES[4][0] / STAGES[0][1],
       short0: returnMaxRatio(270, 0), short2: returnMaxRatio(270, 2),
       long0: returnMaxRatio(4000, 0)
     };
   });
   t.ok("Zwei Suchläufe probieren nicht dieselben Bögen", plan.differs);
   t.ok("Beide Seiten des Hinwegs kommen dran", plan.sides === 2);
-  t.ok("Die Auslenkungen decken einen weiten Bereich ab", plan.spread > 2.5, plan.spread.toFixed(1) + "×");
+  t.ok("Jede Auslenkung bleibt in ihrer Stufe", plan.outOfRange === 0,
+       plan.outOfRange + " Ausreißer in 1200 Werten");
+  t.ok("Die weiteste Stufe lenkt garantiert doppelt so weit aus wie die schmalste",
+       plan.guaranteedSpread >= 2, plan.guaranteedSpread.toFixed(1) + "×");
   t.ok("Auf kurzer Strecke ist mehr als der eingestellte Prozentsatz erlaubt",
        plan.short0 > 2, plan.short0.toFixed(2) + "×");
   t.ok("Auf langer Strecke bleibt die Einstellung maßgeblich",
@@ -269,6 +281,63 @@ module.exports = async function run(env) {
   t.ok("Und nicht als neuer Vorschlag ausgegeben", stuck.secondFresh === false);
   t.ok("Der Maßstab wird nicht bei jedem Druck neu angefragt", stuck.reqTwo < stuck.reqOne,
        `${stuck.reqOne} → ${stuck.reqTwo} Anfragen`);
+
+  /* --- Der zwischengespeicherte Maßstab gehört zum Verkehrsmittel ---
+     Zu Fuß, mit dem Rad und mit dem Auto ist der kürzeste Weg zurück ein
+     anderer. Wer nach dem ersten Rückweg umschaltet, bekäme sonst Umweg-
+     Prozente, die gegen die Strecke des vorigen Verkehrsmittels gerechnet
+     sind. */
+  const cache = await page.evaluate(async () => {
+    const line = trackCoords();
+    const from = line[line.length - 1], to = line[0];
+    const real = osrmRoute;
+    let seen = [];
+    // Zählt mit, welche Anfragen wirklich rausgehen: „:0" = ohne Zwischenpunkte
+    osrmRoute = async (pts, profile) => { seen.push(profile + ":" + (pts.length - 2)); return real(pts, profile); };
+    const directs = () => seen.filter(x => x.endsWith(":0")).length;
+    try {
+      returnRoutes = []; returnBase = null;
+      await searchReturn(from, to, "foot", () => {}, () => false);
+      const first = { profile: returnBase && returnBase.profile, directs: directs() };
+      seen = [];
+      await searchReturn(from, to, "foot", () => {}, () => false);
+      const again = directs();
+      seen = [];
+      await searchReturn(from, to, "bike", () => {}, () => false);
+      return { first, again, afterSwitch: directs(), profileNow: returnBase && returnBase.profile };
+    } finally { osrmRoute = real; returnRoutes = []; returnBase = null; }
+  });
+  t.ok("Der Maßstab wird beim ersten Mal angefragt und gemerkt",
+       cache.first.directs === 1 && cache.first.profile === "foot");
+  t.ok("Beim gleichen Verkehrsmittel bleibt er im Cache", cache.again === 0,
+       cache.again + " direkte Anfragen");
+  t.ok("Nach dem Umschalten wird er neu bestimmt",
+       cache.afterSwitch === 1 && cache.profileNow === "bike",
+       `${cache.afterSwitch} Anfrage(n), Cache jetzt ${cache.profileNow}`);
+
+  /* --- Wenn kein einziger Bogen routbar ist ---
+     Mit warmem Cache wird der direkte Weg übersprungen. Scheitern dann alle
+     Bögen, darf die Suche nicht mit leeren Händen zurückkommen – die Karte
+     ist für sie schon geleert worden. */
+  const arcsFail = await page.evaluate(async () => {
+    const line = trackCoords();
+    const from = line[line.length - 1], to = line[0];
+    const real = osrmRoute;
+    osrmRoute = async (pts, profile) => {
+      if (pts.length > 2) throw new Error("Wunschpunkte nicht routbar");
+      return real(pts, profile);
+    };
+    try {
+      returnRoutes = [];
+      const direct = await real([from, to], "foot");
+      returnBase = { from, to, profile: "foot", distance: direct.distance };   // warmer Cache
+      const res = await searchReturn(from, to, "foot", () => {}, () => false);
+      return { got: !!res, d: res ? Math.round(res.cand.distance) : 0,
+               same: res ? Math.abs(res.cand.distance - direct.distance) < 1 : false };
+    } finally { osrmRoute = real; returnRoutes = []; returnBase = null; }
+  });
+  t.ok("Scheitern alle Bögen, kommt trotzdem ein Rückweg zurück", arcsFail.got, arcsFail.d + " m");
+  t.ok("Und zwar der direkte – nicht „der Router liefert nichts\"", arcsFail.same);
 
   /* --- Speichern: ein Rückweg ist kein Rundkurs --- */
   await page.evaluate(() => { savedRoutes = []; persistRoutes(); });

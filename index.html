@@ -510,7 +510,7 @@ let track = emptyTrack();     // {points:[[lat,lon,t]], distance, recording, sta
 let trackLine = null, trackDestMarker = null;
 let trackTickTimer = null, trackSaveTimer = null;
 let returnRoutes = [];        // schon vorgeschlagene Rückwege – der nächste meidet auch sie
-let returnBase = null;        // {from, to, distance} – kürzester Rückweg als Umweg-Maßstab
+let returnBase = null;        // {from, to, profile, distance} – kürzester Rückweg als Umweg-Maßstab
 
 /* Live-Standort-State */
 let livePos = null;           // {lat, lng, accuracy, time}
@@ -2162,10 +2162,14 @@ async function searchReturn(from, to, profile, onProgress, cancelled) {
   const freeR = Math.max(20, Math.min(300, RETURN_FREE_M + track.distance * 0.03, crow * 0.2));
   const tries = returnRoutes.length;
   let requests = 0, best = null;
-  // Maßstab für den Umweg ist der kürzeste Rückweg. Der hängt nur an Start und
-  // Ziel – bei „Anderer Rückweg" ihn erneut anzufragen, verschenkt eine von
-  // wenigen Anfragen für eine Antwort, die schon bekannt ist.
-  let base = returnBase && segLen(returnBase.from, from) < 30 && segLen(returnBase.to, to) < 30
+  // Maßstab für den Umweg ist der kürzeste Rückweg. Der hängt nur an Start,
+  // Ziel und Verkehrsmittel – bei „Anderer Rückweg" ihn erneut anzufragen,
+  // verschenkt eine von wenigen Anfragen für eine Antwort, die schon bekannt
+  // ist. Das Verkehrsmittel gehört mit in den Schlüssel: Wer nach dem ersten
+  // Rückweg von Fuß auf Auto stellt, bekommt sonst Umweg-Prozente, die gegen
+  // die Fußstrecke gerechnet sind.
+  let base = returnBase && returnBase.profile === profile &&
+             segLen(returnBase.from, from) < 30 && segLen(returnBase.to, to) < 30
     ? { distance: returnBase.distance } : null;
   let maxRatio = returnMaxRatio(base ? base.distance : crow * 1.3, tries);
 
@@ -2197,7 +2201,7 @@ async function searchReturn(from, to, profile, onProgress, cancelled) {
   //    Anfragen bleiben für die Bögen übrig.
   if (!base) {
     const direct = await tryWaypoints([]);
-    if (direct) returnBase = { from, to, distance: direct.distance };
+    if (direct) returnBase = { from, to, profile, distance: direct.distance };
     if (goodEnough(direct)) return done(direct);
   }
 
@@ -2211,6 +2215,16 @@ async function searchReturn(from, to, profile, onProgress, cancelled) {
     const cand = await tryWaypoints(
       arcWaypoints(from, to, step.side, Math.max(120, crow * step.f), step.n, step.skew));
     if (goodEnough(cand)) return done(cand);
+  }
+
+  // 3. Kein einziger Bogen war brauchbar (Router streikt, Wegenetz lässt die
+  //    Wunschpunkte nicht zu) und der Maßstab kam aus dem Cache: dann ist der
+  //    direkte Weg noch gar nicht angefragt worden. Ihn jetzt zu holen ist
+  //    allemal besser als „hier liefert der Router nichts" – die Karte wurde
+  //    für die Suche schon geleert.
+  if (!best && !cancelled()) {
+    const direct = await tryWaypoints([]);
+    if (direct) returnBase = { from, to, profile, distance: direct.distance };
   }
   return best ? done(best) : null;
 }
