@@ -197,25 +197,50 @@ Suche das Ausweichen geometrisch:
 
 1. **Direkter Rückweg** zuerst. Oft führt der Router ohnehin anders zurück;
    dann ist die Suche nach einer Anfrage vorbei. Er dient außerdem als Maßstab
-   für den Umweg der folgenden Kandidaten.
+   für den Umweg der folgenden Kandidaten. Weil dieser Maßstab nur an Start,
+   Ziel und Verkehrsmittel hängt, wird er zwischengespeichert (`returnBase`):
+   „Anderer Rückweg" fragt ihn nicht noch einmal an, sondern steckt alle
+   Anfragen in die Bögen. Ein Wechsel des Verkehrsmittels entwertet den Cache.
+   Bleibt am Ende kein einziger Bogen übrig (Router streikt, Wunschpunkte
+   nicht routbar), wird der direkte Weg nachgeholt – die Karte ist für die
+   Suche schon geleert worden und darf nicht leer bleiben.
 2. **Bögen**: `arcWaypoints` verteilt Zwischenpunkte entlang der Luftlinie und
-   lenkt sie senkrecht dazu aus (in der Mitte am stärksten). Die erste
-   Auslenkung geht auf die Gegenseite des Hinwegs (`sideOfLine`), danach
-   wachsen Auslenkung und Punktzahl, dazwischen liegt ein Versuch auf der
-   anderen Seite. Maximal `RETURN_BUDGET` (6) Anfragen.
+   lenkt sie senkrecht dazu aus; `skew` verschiebt den Scheitel der Wölbung.
+   `returnPlan` legt die Stufen fest – von schmal nach weit, im Wechsel
+   zwischen der Gegenseite des Hinwegs (`sideOfLine`) und der anderen Seite.
+   Auslenkung, Punktzahl und Scheitel werden *innerhalb* der Stufe gewürfelt,
+   damit zwei Suchläufe nicht dieselben Anfragen stellen. Maximal
+   `RETURN_BUDGET` (8) Anfragen.
 3. **Bewertung** über `nearFraction`: Anteil des Kandidaten, der räumlich nahe
-   (≤ ~70 m, dasselbe Raster wie die Zipfel-Metrik) am Hinweg verläuft. Der
+   (≤ ~70 m, dasselbe Raster wie die Zipfel-Metrik) am Hinweg verläuft
+   (`shared`) bzw. an einem schon vorgeschlagenen Rückweg (`prev`). Der
    Nahbereich um Start und Ziel bleibt straffrei – dort gibt es nur eine
-   Haustür, Wiederholung ist unvermeidbar. In den Score gehen außerdem der
-   Umweg gegenüber dem direkten Rückweg (erst jenseits der Einstellung
-   „erlaubter Umweg", Standard 60 %) und Stichfahrten im Rückweg selbst ein.
+   Haustür, Wiederholung ist unvermeidbar –, aber er wächst mit der Entfernung
+   mit (höchstens ein Fünftel der Luftlinie): fest 80 m um beide Enden würden
+   auf einem 270-m-Rückweg mehr als die halbe Strecke zudecken und jedes
+   mitbenutzte Stück Hinweg als „0 %" ausweisen. In den Score gehen außerdem
+   der Umweg gegenüber dem direkten Rückweg und Stichfahrten im Rückweg selbst
+   ein.
 4. **Abbruch, sobald es passt**: ≤ `RETURN_GOOD_SHARE` (15 %) gemeinsame
    Strecke innerhalb des erlaubten Umwegs – sonst gewinnt am Ende der beste
    Kandidat, und die Statuszeile sagt offen, wie viel sich nicht vermeiden ließ.
 
+**Wie lang darf der Rückweg werden?** Maßstab ist der kürzeste Weg zurück, die
+Grenze kommt aus der Einstellung „erlaubter Umweg" (Standard 60 %). Auf kurzer
+Strecke ist das zu knapp – wer 250 m vom Start entfernt steht, kommt mit 60 %
+Umweg nicht einmal um den Block, und dann bleibt nur der Hinweg. Deshalb sind
+über `RETURN_EXTRA_M` immer mindestens 400 m Umweg erlaubt, und jeder weitere
+Vorschlag darf noch großzügiger ausfallen (`RETURN_WIDEN`, +35 % pro schon
+gezeigtem Rückweg). Ein längerer Rückweg ist genau das, was den größeren Bogen
+überhaupt erst möglich macht.
+
 Ein weiterer Knopfdruck sucht einen weiteren Vorschlag; die schon
 vorgeschlagenen Rückwege (die jüngsten vier) kommen dabei mit in die Menge
-der zu meidenden Linien.
+der zu meidenden Linien. Deckt sich der beste Kandidat zu mehr als
+`RETURN_SAME` (70 %) mit einem davon, sagt die Statuszeile das („einen anderen
+Weg gibt das Wegenetz hier nicht her") und der Weg wird nicht als eigener
+Vorschlag gesammelt – wortlos dieselbe Linie neu zu zeichnen sähe wie ein
+hängender Knopf aus.
 
 Das Ergebnis ist eine ganz normale Route: Höhenprofil, Teilen-Link, GPX,
 Google Maps und Speichern funktionieren wie beim Rundkurs. In der Routenliste
@@ -223,7 +248,10 @@ sind Rückwege mit ↩️ gekennzeichnet.
 
 Gemessen an einem echten Berliner Beispiel (1,2 km Hinweg): der direkte
 Rückweg deckt sich zu 75 % mit dem Hinweg, der gefundene zu 12 % – bei 31 %
-Umweg.
+Umweg. In einem engen Wohngebiet (250 m Luftlinie, Wiesbaden-Dotzheim) liefern
+vier Knopfdrücke 559 m / 988 m / 1039 m / 1192 m mit 31 / 16 / 12 / 13 %
+gemeinsamer Strecke – vorher war es ab dem zweiten Druck jedes Mal derselbe
+335-m-Weg mit 56 % Hinweg-Anteil.
 
 ## Verwendete Dienste
 
@@ -366,4 +394,7 @@ tests/
   einer Web-Seite nicht möglich.
 - Wie gut der Rückweg ausweichen kann, hängt am Wegenetz: Wo es nur eine
   Straße gibt (Brücke, Damm, Tal), bleibt gemeinsame Strecke übrig – die
-  Statuszeile weist sie dann in Prozent aus, statt sie zu verschweigen.
+  Statuszeile weist sie dann in Prozent aus, statt sie zu verschweigen. Gibt
+  das Netz gar keinen zweiten Weg her, wiederholt „Anderer Rückweg"
+  zwangsläufig einen früheren Vorschlag; auch das steht dann in der
+  Statuszeile.
