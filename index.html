@@ -375,7 +375,9 @@
       <label class="small" for="detourInput">Rückweg: erlaubter Umweg (%)</label>
       <input type="number" id="detourInput" min="0" max="300" step="10" value="60">
       <span class="hint">Wie viel länger als der kürzeste Weg zurück der Rückweg höchstens werden darf, um
-      der aufgezeichneten Strecke auszuweichen. Mehr Umweg = weniger gemeinsame Strecke.</span>
+      der aufgezeichneten Strecke auszuweichen. Mehr Umweg = weniger gemeinsame Strecke. Auf kurzer
+      Strecke sind immer mindestens 400 m Umweg erlaubt, und jeder weitere Vorschlag darf großzügiger
+      ausfallen – sonst reicht es nicht einmal um den Block.</span>
     </div>
     <div class="field">
       <label class="small" for="themeInput">Erscheinungsbild</label>
@@ -473,10 +475,13 @@ const TRACK_MAX_ACC = 60;     // ungenauere Fixes verfälschen die Strecke mehr,
 const TRACK_SAVE_MS = 3000;   // höchstens so oft in den localStorage schreiben
 
 /* Rückweg-Suche */
-const RETURN_BUDGET = 6;      // max. Routing-Anfragen pro Rückweg
+const RETURN_BUDGET = 8;      // max. Routing-Anfragen pro Rückweg
 const RETURN_GOOD_SHARE = 0.15; // ≤15 % gemeinsame Strecke = sofort akzeptieren
 const RETURN_FREE_M = 80;     // Nahbereich um Start und Ziel: Wiederholung unvermeidbar
 const RETURN_MIN_CROW = 150;  // darunter ist man praktisch schon wieder da
+const RETURN_EXTRA_M = 400;   // so viel Umweg ist immer erlaubt – auch auf kurzer Strecke
+const RETURN_WIDEN = 0.35;    // jeder weitere Vorschlag darf 35 % länger ausfallen
+const RETURN_SAME = 0.7;      // ab so viel Deckung ist es kein anderer Vorschlag mehr
 
 /* ================= State ================= */
 let settings = loadSettings();
@@ -505,6 +510,7 @@ let track = emptyTrack();     // {points:[[lat,lon,t]], distance, recording, sta
 let trackLine = null, trackDestMarker = null;
 let trackTickTimer = null, trackSaveTimer = null;
 let returnRoutes = [];        // schon vorgeschlagene Rückwege – der nächste meidet auch sie
+let returnBase = null;        // {from, to, distance} – kürzester Rückweg als Umweg-Maßstab
 
 /* Live-Standort-State */
 let livePos = null;           // {lat, lng, accuracy, time}
@@ -1958,7 +1964,7 @@ function stopRecording() {
 function discardTrack() {
   if (trackHasData() && !confirm("Aufgezeichnete Strecke verwerfen?")) return;
   track = emptyTrack();
-  returnRoutes = [];
+  returnRoutes = []; returnBase = null;
   clearInterval(trackTickTimer); trackTickTimer = null;
   persistTrack(true);
   renderTrack();
@@ -2092,33 +2098,76 @@ function sideOfLine(from, to, coords) {
 }
 
 /* Zwischenpunkte auf einem Bogen von „from" nach „to": entlang der Luftlinie
-   verteilt und senkrecht dazu ausgelenkt, in der Mitte am stärksten. */
-function arcWaypoints(from, to, side, bulgeM, n) {
+   verteilt und senkrecht dazu ausgelenkt, am Scheitel am stärksten. `skew`
+   verschiebt diesen Scheitel (0,5 = Mitte) – ein Bogen, der sich früh oder
+   spät wölbt, trifft im Wegenetz andere Straßen als der symmetrische. */
+function arcWaypoints(from, to, side, bulgeM, n, skew = 0.5) {
   const brg = bearingTo(from, to), d = segLen(from, to);
+  const sk = Math.min(0.85, Math.max(0.15, skew));
   const out = [];
   for (let k = 1; k <= n; k++) {
     const t = k / (n + 1);
     const base = destPoint(from[0], from[1], brg, d * t);
-    out.push(destPoint(base[0], base[1], (brg + side * 90 + 360) % 360, Math.sin(Math.PI * t) * bulgeM));
+    // t auf u abbilden, sodass u = 0,5 (und damit die volle Auslenkung) bei sk liegt
+    const u = t < sk ? 0.5 * t / sk : 0.5 + 0.5 * (t - sk) / (1 - sk);
+    out.push(destPoint(base[0], base[1], (brg + side * 90 + 360) % 360, Math.sin(Math.PI * u) * bulgeM));
   }
   return out;
 }
 
-/* Gemeinsame Strecke wiegt am schwersten; der Umweg kostet erst, wenn er die
-   eingestellte Grenze reißt. Eine Stichfahrt im Rückweg selbst (self) ist
-   ebenfalls unerwünscht, aber halb so schlimm. */
+/* Die Ausweich-Versuche einer Suche: Seite, Auslenkung, Zahl der
+   Zwischenpunkte, Lage des Scheitels. Die Stufen laufen von schmal nach weit
+   und wechseln dabei die Seite; *innerhalb* einer Stufe wird gewürfelt. Genau
+   daran hing, dass „Anderer Rückweg" immer dasselbe lieferte: Ein fester Plan
+   stellt bei jedem Druck dieselben Anfragen, und wenn keine davon sauber
+   ausweicht, gewinnt jedes Mal derselbe Kandidat. */
+function returnPlan(away) {
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  return [[away, 0.30, 0.55], [-away, 0.30, 0.55], [away, 0.6, 1.0],
+          [-away, 0.6, 1.0], [away, 1.1, 1.7], [-away, 1.1, 1.7]]
+    .map(([side, lo, hi]) => ({ side, f: rnd(lo, hi),
+                                n: Math.random() < 0.5 ? 1 : 2, skew: rnd(0.3, 0.7) }));
+}
+
+/* Wie lang darf der Rückweg werden? Der Prozentsatz aus den Einstellungen ist
+   auf kurzer Strecke zu knapp: Wer 250 m vom Start entfernt steht, kommt mit
+   60 % Umweg nicht einmal um den Block – und dann bleibt eben nur der Hinweg.
+   Deshalb gilt zusätzlich ein fester Spielraum von RETURN_EXTRA_M, und jeder
+   weitere Vorschlag darf noch großzügiger ausfallen: Ein längerer Rückweg ist
+   genau das, was den größeren Bogen überhaupt erst zulässt. */
+function returnMaxRatio(baseM, tries) {
+  const pct = 1 + Math.max(0, settings.returnDetour) / 100;
+  const abs = baseM > 0 ? 1 + RETURN_EXTRA_M / baseM : pct;
+  return Math.max(pct, abs) * (1 + RETURN_WIDEN * Math.max(0, tries));
+}
+
+/* Gemeinsame Strecke mit dem Hinweg wiegt am schwersten. Fast genauso schwer
+   wiegt die Deckung mit einem schon gezeigten Rückweg (`prev`) – sonst kommt
+   auf „Anderer Rückweg" wieder derselbe Weg heraus. Der Umweg kostet erst,
+   wenn er die erlaubte Grenze reißt. Eine Stichfahrt im Rückweg selbst (self)
+   ist ebenfalls unerwünscht, aber halb so schlimm. */
 function returnScoreOf(c, maxRatio) {
-  return c.avoid + Math.max(0, c.ratio - maxRatio) * 1.5 + (c.self || 0) * 0.5;
+  return c.shared + (c.prev || 0) * 0.8
+       + Math.max(0, c.ratio - maxRatio) * 1.5 + (c.self || 0) * 0.5;
 }
 
 async function searchReturn(from, to, profile, onProgress, cancelled) {
   const trackLineCoords = trackCoords();
-  const avoidLines = [trackLineCoords, ...returnRoutes];   // auch schon vorgeschlagene Rückwege meiden
   const freePts = [from, to];
-  const freeR = Math.min(300, Math.max(RETURN_FREE_M, track.distance * 0.03));
-  const maxRatio = 1 + Math.max(0, settings.returnDetour) / 100;
   const crow = segLen(from, to);
-  let requests = 0, base = null, best = null;
+  // Der straffreie Nahbereich muss zur Länge passen. Fest 80 m um Start *und*
+  // Ziel decken auf einem 270-m-Rückweg mehr als die halbe Strecke zu – dann
+  // meldet die App „0 % gemeinsam", obwohl das letzte Stück sichtbar auf dem
+  // Hinweg verläuft, und die Bewertung sieht diese Wiederholung gar nicht.
+  const freeR = Math.max(20, Math.min(300, RETURN_FREE_M + track.distance * 0.03, crow * 0.2));
+  const tries = returnRoutes.length;
+  let requests = 0, best = null;
+  // Maßstab für den Umweg ist der kürzeste Rückweg. Der hängt nur an Start und
+  // Ziel – bei „Anderer Rückweg" ihn erneut anzufragen, verschenkt eine von
+  // wenigen Anfragen für eine Antwort, die schon bekannt ist.
+  let base = returnBase && segLen(returnBase.from, from) < 30 && segLen(returnBase.to, to) < 30
+    ? { distance: returnBase.distance } : null;
+  let maxRatio = returnMaxRatio(base ? base.distance : crow * 1.3, tries);
 
   const tryWaypoints = async wps => {
     if (requests >= RETURN_BUDGET || cancelled()) return null;
@@ -2129,45 +2178,56 @@ async function searchReturn(from, to, profile, onProgress, cancelled) {
     if (cancelled() || !r || r.distance < 50 || (r.avgSnap || 0) > MAX_SNAP_M) return null;
     const cand = { ...r, waypoints: wps, kind: "return",
                    shared: nearFraction(r.coords, [trackLineCoords], freeR, freePts),
-                   avoid: nearFraction(r.coords, avoidLines, freeR, freePts),
+                   prev: nearFraction(r.coords, returnRoutes, freeR, freePts),
                    self: overlapFraction(r.coords) };
-    // Der erste Treffer ist der kürzeste Rückweg und damit der Maßstab für den
-    // Umweg. Fällt er aus (Router-Fehler), dient eben der nächste als Maßstab.
-    if (!base) base = cand;
+    // Fällt der direkte Rückweg aus (Router-Fehler), dient eben der nächste
+    // Treffer als Maßstab.
+    if (!base) { base = cand; maxRatio = returnMaxRatio(base.distance, tries); }
     cand.ratio = cand.distance / Math.max(base.distance, 1);
     if (!best || returnScoreOf(cand, maxRatio) < returnScoreOf(best, maxRatio)) best = cand;
     return cand;
   };
   const goodEnough = c => c && c.ratio <= maxRatio &&
-                          c.shared <= RETURN_GOOD_SHARE && c.avoid <= RETURN_GOOD_SHARE;
+                          c.shared <= RETURN_GOOD_SHARE && c.prev <= RETURN_GOOD_SHARE;
+  const done = cand => ({ cand, base, requests, fresh: (cand.prev || 0) < RETURN_SAME });
 
   // 1. Der direkte Rückweg. Oft schon ein anderer Weg als der Hinweg – dann ist
-  //    er auch der kürzeste und die Suche ist hier zu Ende.
-  const direct = await tryWaypoints([]);
-  if (goodEnough(direct)) return { cand: direct, base, requests };
+  //    er auch der kürzeste und die Suche ist hier zu Ende. Beim zweiten Druck
+  //    ist er längst vorgeschlagen; dann steht sein Maß im Cache und alle
+  //    Anfragen bleiben für die Bögen übrig.
+  if (!base) {
+    const direct = await tryWaypoints([]);
+    if (direct) returnBase = { from, to, distance: direct.distance };
+    if (goodEnough(direct)) return done(direct);
+  }
 
-  // 2. Sonst über Bögen ausweichen: erst zur Gegenseite des Hinwegs, mit
-  //    wachsender Auslenkung, dazwischen ein Versuch auf der anderen Seite.
+  // 2. Sonst über Bögen ausweichen: von schmal nach weit, im Wechsel zur
+  //    Gegenseite des Hinwegs und zurück, mit gewürfelter Auslenkung – zwei
+  //    Suchläufe fragen damit nicht dieselben Bögen ab.
   const away = -sideOfLine(from, to, trackLineCoords);
-  const plan = [[away, 0.35, 1], [away, 0.65, 2], [-away, 0.35, 1], [away, 1.0, 2], [-away, 0.7, 2]];
-  for (const [side, f, n] of plan) {
+  for (const step of returnPlan(away)) {
     if (requests >= RETURN_BUDGET || cancelled()) break;
     await sleep(ITER_DELAY_MS);
-    const cand = await tryWaypoints(arcWaypoints(from, to, side, Math.max(180, crow * f), n));
-    if (goodEnough(cand)) return { cand, base, requests };
+    const cand = await tryWaypoints(
+      arcWaypoints(from, to, step.side, Math.max(120, crow * step.f), step.n, step.skew));
+    if (goodEnough(cand)) return done(cand);
   }
-  return best ? { cand: best, base, requests } : null;
+  return best ? done(best) : null;
 }
 
-function showReturnStatus(route, base) {
+function showReturnStatus(route, base, fresh) {
   const pct = (v, d = 0) => (v * 100).toLocaleString("de-DE", { maximumFractionDigits: d });
   const shareCls = route.shared <= RETURN_GOOD_SHARE ? "ok" : "warn";
   const detour = base && base.distance ? route.distance / base.distance - 1 : 0;
+  // Kommt derselbe Weg noch einmal, wird das gesagt – wortlos dieselbe Linie
+  // neu zu zeichnen sieht wie ein hängender Knopf aus.
+  const note = fresh === false
+    ? ' – <span class="warn">einen anderen Weg gibt das Wegenetz hier nicht her</span>'
+    : route.shared > RETURN_GOOD_SHARE ? " – mehr Ausweichmöglichkeiten gab das Wegenetz nicht her" : "";
   setStatus(
     `↩️ Rückweg · <span class="ok">${fmtDist(route.distance)}</span> · ca. ${fmtDur(route.duration)}` +
     ` · gemeinsam mit dem Hinweg: <span class="${shareCls}">${pct(route.shared)} %</span>` +
-    (detour > 0.02 ? ` · ${pct(detour)} % Umweg` : "") +
-    (route.shared > RETURN_GOOD_SHARE ? " – mehr Ausweichmöglichkeiten gab das Wegenetz nicht her" : "")
+    (detour > 0.02 ? ` · ${pct(detour)} % Umweg` : "") + note
   );
 }
 
@@ -2209,15 +2269,17 @@ async function findReturn() {
     routeCtx = { targetM: res.cand.distance, profile: mode,
                  tol: settings.tolerance / 100, km: res.cand.distance / 1000 };
     // Der nächste Vorschlag meidet auch diesen – aber nur die jüngsten vier,
-    // sonst bleibt nach genug Knopfdrücken gar kein Weg mehr übrig.
-    returnRoutes = returnRoutes.concat([res.cand.coords]).slice(-4);
+    // sonst bleibt nach genug Knopfdrücken gar kein Weg mehr übrig. Ein
+    // Vorschlag, der einen früheren bloß wiederholt, kommt nicht mit hinein:
+    // er würde einen der vier Plätze für nichts belegen.
+    if (res.fresh !== false) returnRoutes = returnRoutes.concat([res.cand.coords]).slice(-4);
     drawRoute(res.cand, { fit: false });
     // Hin- und Rückweg gehören zusammen: beide ins Bild holen
     const bounds = routeLine.getBounds();
     if (trackLine) bounds.extend(trackLine.getBounds());
     map.fitBounds(bounds, { padding: [40, 40] });
     variantBtn.disabled = true;                  // Würfeln gehört zum Rundkurs, nicht zum Rückweg
-    showReturnStatus(res.cand, res.base);
+    showReturnStatus(res.cand, res.base, res.fresh);
   } catch (e) {
     if (!cancelled()) setStatus(`<span class="err">${e.message}</span>`);
   } finally {

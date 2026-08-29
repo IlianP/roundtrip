@@ -196,6 +196,80 @@ module.exports = async function run(env) {
        (second.vsFirst * 100).toFixed(0) + " % wie der erste");
   t.ok("Vorschläge werden gesammelt", second.n === 2, second.n + " Rückwege");
 
+  /* --- Warum „Anderer Rückweg" nicht dasselbe liefern darf ---
+     Der Plan der Ausweich-Bögen wird gewürfelt, nicht fest abgespult: sonst
+     stellt jeder Knopfdruck dieselben Anfragen und liefert zwangsläufig
+     denselben Weg. Und der erlaubte Umweg wächst mit jedem Vorschlag, damit
+     der größere Bogen überhaupt in Frage kommt. */
+  const plan = await page.evaluate(() => {
+    const key = p => p.map(s => `${s.side}|${s.f.toFixed(3)}|${s.n}|${s.skew.toFixed(3)}`).join(",");
+    const a = returnPlan(1), b = returnPlan(1);
+    return {
+      differs: key(a) !== key(b),
+      sides: new Set(a.map(s => s.side)).size,
+      spread: Math.max(...a.map(s => s.f)) / Math.min(...a.map(s => s.f)),
+      short0: returnMaxRatio(270, 0), short2: returnMaxRatio(270, 2),
+      long0: returnMaxRatio(4000, 0)
+    };
+  });
+  t.ok("Zwei Suchläufe probieren nicht dieselben Bögen", plan.differs);
+  t.ok("Beide Seiten des Hinwegs kommen dran", plan.sides === 2);
+  t.ok("Die Auslenkungen decken einen weiten Bereich ab", plan.spread > 2.5, plan.spread.toFixed(1) + "×");
+  t.ok("Auf kurzer Strecke ist mehr als der eingestellte Prozentsatz erlaubt",
+       plan.short0 > 2, plan.short0.toFixed(2) + "×");
+  t.ok("Auf langer Strecke bleibt die Einstellung maßgeblich",
+       Math.abs(plan.long0 - 1.6) < 0.01, plan.long0.toFixed(2) + "×");
+  t.ok("Jeder weitere Vorschlag darf länger ausfallen", plan.short2 > plan.short0 * 1.6,
+       `${plan.short0.toFixed(2)}× → ${plan.short2.toFixed(2)}×`);
+
+  /* --- Kurzer Rückweg: der straffreie Nahbereich darf nicht alles schlucken ---
+     80 m um Start *und* Ziel decken auf 270 m fast die ganze Strecke ab – dann
+     meldet die App „0 % gemeinsam", obwohl sichtbar ein Stück Hinweg
+     mitbenutzt wird. Der Freiraum wächst deshalb mit der Entfernung mit. */
+  const freeShort = await page.evaluate(() => {
+    const A = [52.5145, 13.3501];
+    const dLon = 15 / (111320 * Math.cos(A[0] * Math.PI / 180));
+    const line = Array.from({ length: 9 }, (_, i) => [A[0], +(A[1] + i * dLon).toFixed(6)]);
+    const B = line[line.length - 1];                     // 120 m Luftlinie – wie im Screenshot
+    // Rückweg außen herum, der die letzten ~45 m auf dem Hinweg zurücklegt
+    const off = line.slice(3).map(c => [c[0] + 0.0015, c[1]]).reverse();
+    const ret = [B].concat(off, line.slice(0, 4).reverse());
+    const crow = segLen(ret[0], ret[ret.length - 1]);
+    const freeR = Math.max(20, Math.min(300, RETURN_FREE_M + 120 * 0.03, crow * 0.2));
+    return { freeR, old: nearFraction(ret, [line], RETURN_FREE_M, [B, A]),
+             now: nearFraction(ret, [line], freeR, [B, A]) };
+  });
+  t.ok("Der Freiraum schrumpft auf kurzer Strecke", freeShort.freeR < 80,
+       Math.round(freeShort.freeR) + " m statt 80 m");
+  t.ok("Kurzer Rückweg meldet den mitbenutzten Hinweg nicht länger als 0 %",
+       freeShort.old < 0.05 && freeShort.now > 0.1,
+       `${(freeShort.old * 100).toFixed(0)} % → ${(freeShort.now * 100).toFixed(0)} %`);
+
+  /* --- Wenn das Wegenetz wirklich nichts anderes hergibt --- */
+  const stuck = await page.evaluate(async () => {
+    const line = trackCoords();
+    const from = line[line.length - 1], to = line[0];
+    const real = osrmRoute;
+    const fixed = await real([from, to], "foot");
+    // Router, der auf jede Anfrage denselben Weg liefert – wie ein Wohngebiet,
+    // aus dem nur eine einzige Straße herausführt.
+    osrmRoute = async () => ({ ...fixed, coords: fixed.coords.map(c => c.slice()) });
+    try {
+      returnRoutes = []; returnBase = null;
+      const one = await searchReturn(from, to, "foot", () => {}, () => false);
+      returnRoutes = [one.cand.coords];
+      const two = await searchReturn(from, to, "foot", () => {}, () => false);
+      return { firstFresh: one.fresh, secondFresh: two.fresh, prev: two.cand.prev,
+               reqOne: one.requests, reqTwo: two.requests };
+    } finally { osrmRoute = real; returnRoutes = []; returnBase = null; }
+  });
+  t.ok("Der erste Vorschlag gilt als neuer Weg", stuck.firstFresh === true);
+  t.ok("Ein wiederholter Weg wird als solcher erkannt", stuck.prev > 0.9,
+       (stuck.prev * 100).toFixed(0) + " % wie zuvor");
+  t.ok("Und nicht als neuer Vorschlag ausgegeben", stuck.secondFresh === false);
+  t.ok("Der Maßstab wird nicht bei jedem Druck neu angefragt", stuck.reqTwo < stuck.reqOne,
+       `${stuck.reqOne} → ${stuck.reqTwo} Anfragen`);
+
   /* --- Speichern: ein Rückweg ist kein Rundkurs --- */
   await page.evaluate(() => { savedRoutes = []; persistRoutes(); });
   await page.click("#saveBtn");
