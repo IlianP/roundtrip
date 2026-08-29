@@ -6,6 +6,10 @@ reale, straßenbasierte Route, die möglichst nah an diese Distanz herankommt,
 dabei rund verläuft und wenig „Zipfel" (Strecken, die zweimal befahren
 werden) enthält.
 
+Dazu kommt der **Rückweg** („Roundtrip But Later"): den Hinweg von A nach B
+live aufzeichnen und später per Knopfdruck einen Weg zurück finden, der
+möglichst wenig von der aufgezeichneten Strecke wiederholt.
+
 Die gesamte Anwendung ist **eine einzige `index.html`** – kein Build-Schritt,
 kein Bundler, kein Backend. Öffnen (lokal oder gehostet) genügt.
 
@@ -15,6 +19,7 @@ kein Bundler, kein Backend. Öffnen (lokal oder gehostet) genügt.
 - [Schnellstart](#schnellstart)
 - [Funktionen im Detail](#funktionen-im-detail)
 - [Der Rundkurs-Algorithmus](#der-rundkurs-algorithmus)
+- [Der Rückweg („Roundtrip But Later")](#der-rückweg-roundtrip-but-later)
 - [Verwendete Dienste](#verwendete-dienste)
 - [Architektur der `index.html`](#architektur-der-indexhtml)
 - [Daten & Speicherung](#daten--speicherung)
@@ -35,6 +40,11 @@ kein Bundler, kein Backend. Öffnen (lokal oder gehostet) genügt.
 4. Ergebnis: eine fertig geroutete Schleife mit Höhenprofil, die man als
    Link teilen, als GPX exportieren, in Google Maps öffnen oder lokal
    speichern kann.
+
+Und der zweite Weg zum selben Ziel, wenn der Hinweg schon feststeht:
+**⏺ Aufzeichnen** beim Losgehen, unterwegs zeichnet die App den Weg per GPS
+mit – **↩️ Rückweg finden** bei der Ankunft, und sie sucht einen anderen Weg
+zurück zum Ausgangspunkt. Zwischen beidem darf die Seite geschlossen werden.
 
 ## Schnellstart
 
@@ -73,6 +83,10 @@ npm test
   App im Hintergrund bis zu drei sichtbar unterschiedliche Alternativen in
   anderen Himmelsrichtungen und zeigt sie als gestrichelte „Geister-Linien"
   auf der Karte sowie als Chips im Panel.
+- **Rückweg auf anderem Weg** (siehe [unten](#der-rückweg-roundtrip-but-later)):
+  Hinweg aufzeichnen, später einen Rückweg finden lassen, der die
+  aufgezeichnete Strecke meidet. Ein weiterer Knopfdruck liefert einen
+  weiteren Vorschlag, der auch dem ersten ausweicht.
 - **Höhenprofil**: Flächendiagramm mit Auf-/Abstieg, Min/Max, interaktivem
   Fadenkreuz (Maus/Touch) mit passendem Marker auf der Karte.
 - **Teilen & Navigation**:
@@ -153,6 +167,64 @@ Alle Konstanten des Algorithmus (`MAX_ITER`, `MAX_SEEDS`, `REQUEST_BUDGET`,
 `GOOD_OVERLAP`, `MIN_ROUNDNESS`, `MAX_SNAP_M`, …) stehen gesammelt im
 Konfigurationsblock am Anfang des `<script>`-Teils.
 
+## Der Rückweg („Roundtrip But Later")
+
+Der Rundkurs-Planer braucht die Route vorher; hier ist es umgekehrt – der
+Hinweg ist schon gelaufen, gesucht wird der Rest. Beides sind zwei Schritte,
+zwischen denen Stunden liegen dürfen:
+
+**1. Aufzeichnen.** Jeder Live-Fix läuft durch `trackAddPoint` und wird nur
+übernommen, wenn er etwas beiträgt:
+
+- Genauigkeit besser als `TRACK_MAX_ACC` (60 m) – ungenaue Fixes verlängern
+  die Strecke, statt sie zu beschreiben.
+- Mindestens `TRACK_MIN_M` (8 m) vom letzten Punkt entfernt – sonst ist es
+  das Rauschen eines stehenden Geräts.
+- Kein unmöglicher Sprung: der Abstand muss zur verstrichenen Zeit passen
+  (`maxMs` je Verkehrsmittel, mindestens ein 3-Sekunden-Fenster, damit eine
+  Pause im Hintergrund nicht als Sprung gilt).
+
+Die Aufzeichnung liegt gedrosselt (höchstens alle 3 s, beim Verlassen der
+Seite sofort) unter `roundtrip-track` im `localStorage` und wird beim nächsten
+Laden wiederhergestellt – lief sie noch, läuft sie weiter. Genau darauf beruht
+das „But Later": Zwischen Hin- und Rückweg darf die Seite geschlossen werden.
+
+**2. Rückweg suchen.** Ziel ist der erste aufgezeichnete Punkt, Start ist der
+aktuelle Standort (ohne frischen Fix: das Ende der Aufzeichnung).
+
+Die freien OSRM-Server kennen kein „meide diese Linie" – also erzwingt die
+Suche das Ausweichen geometrisch:
+
+1. **Direkter Rückweg** zuerst. Oft führt der Router ohnehin anders zurück;
+   dann ist die Suche nach einer Anfrage vorbei. Er dient außerdem als Maßstab
+   für den Umweg der folgenden Kandidaten.
+2. **Bögen**: `arcWaypoints` verteilt Zwischenpunkte entlang der Luftlinie und
+   lenkt sie senkrecht dazu aus (in der Mitte am stärksten). Die erste
+   Auslenkung geht auf die Gegenseite des Hinwegs (`sideOfLine`), danach
+   wachsen Auslenkung und Punktzahl, dazwischen liegt ein Versuch auf der
+   anderen Seite. Maximal `RETURN_BUDGET` (6) Anfragen.
+3. **Bewertung** über `nearFraction`: Anteil des Kandidaten, der räumlich nahe
+   (≤ ~70 m, dasselbe Raster wie die Zipfel-Metrik) am Hinweg verläuft. Der
+   Nahbereich um Start und Ziel bleibt straffrei – dort gibt es nur eine
+   Haustür, Wiederholung ist unvermeidbar. In den Score gehen außerdem der
+   Umweg gegenüber dem direkten Rückweg (erst jenseits der Einstellung
+   „erlaubter Umweg", Standard 60 %) und Stichfahrten im Rückweg selbst ein.
+4. **Abbruch, sobald es passt**: ≤ `RETURN_GOOD_SHARE` (15 %) gemeinsame
+   Strecke innerhalb des erlaubten Umwegs – sonst gewinnt am Ende der beste
+   Kandidat, und die Statuszeile sagt offen, wie viel sich nicht vermeiden ließ.
+
+Ein weiterer Knopfdruck sucht einen weiteren Vorschlag; die schon
+vorgeschlagenen Rückwege (die jüngsten vier) kommen dabei mit in die Menge
+der zu meidenden Linien.
+
+Das Ergebnis ist eine ganz normale Route: Höhenprofil, Teilen-Link, GPX,
+Google Maps und Speichern funktionieren wie beim Rundkurs. In der Routenliste
+sind Rückwege mit ↩️ gekennzeichnet.
+
+Gemessen an einem echten Berliner Beispiel (1,2 km Hinweg): der direkte
+Rückweg deckt sich zu 75 % mit dem Hinweg, der gefundene zu 12 % – bei 31 %
+Umweg.
+
 ## Verwendete Dienste
 
 Alles über frei nutzbare, öffentliche Dienste – kein eigenes Backend, keine
@@ -194,6 +266,8 @@ gegliedert (per Kommentar-Überschriften `================= … ================
   Teilen/Navigation  Link-Kodierung (eigenes Base64-Alphabet), GPX, Google Maps
   Gespeicherte Routen localStorage, Export/Import als JSON
   Live-Standort      watchPosition + Heartbeat + Render-Drosselung
+  Rückweg            Aufzeichnung (Filter, localStorage), nearFraction,
+                     arcWaypoints, searchReturn, Bedienbox
   Standort & Suche   Geolocation-Button, Nominatim-Adresssuche
   Einstellungen      laden/speichern (localStorage)
   Erscheinungsbild   Theme anwenden, Leaflet-Ebenen nachziehen
@@ -205,9 +279,13 @@ gegliedert (per Kommentar-Überschriften `================= … ================
 Es gibt keinen eigenen Server und kein Tracking. Persistiert wird
 ausschließlich lokal im Browser (`localStorage`):
 
-- `roundtrip-settings` – Toleranz, Autobahn-Einstellung, Theme.
+- `roundtrip-settings` – Toleranz, Autobahn-Einstellung, erlaubter
+  Rückweg-Umweg, Theme.
 - `roundtrip-routes` – gespeicherte Routen (Koordinaten, Wegpunkte,
   Höhenprofil, Metadaten).
+- `roundtrip-track` – die laufende oder zuletzt beendete Aufzeichnung des
+  Hinwegs (Punkte mit Zeitstempel, Länge, Verkehrsmittel). Verlässt das Gerät
+  nie; das 🗑️ in der Rückweg-Box löscht sie.
 
 Ein **geteilter Link** enthält die komplette (vereinfachte) Streckengeometrie
 im URL-Fragment (`#r=1~modus~km~dauer~meter~verlauf`) – das Fragment wird nie
@@ -237,8 +315,9 @@ Last für die freien Dienste. `LIVE=1` schaltet auf die echten Dienste um.
 | --- | --- |
 | `core` | Rechenkern: Link-Kodierung, Linien-Vereinfachung, Abtastung, Höhen-Statistik samt Glättung, Doppelstrecken- und Rundheits-Metrik, Anzeigeformate |
 | `ui` | Ablauf: Route erzeugen, Varianten im Hintergrund, Höhenprofil samt Zeiger, Teilen-Link, Navi-Link, Speichern/Export/Import, Thema, Panel, Fahrrad, unroutbarer Start |
+| `return` | Aufzeichnung samt Filtern, Wiederherstellung nach dem Neuladen, Maß für gemeinsame Strecke, Rückweg-Suche und zweiter Vorschlag |
 | `elevation` | Verhalten, wenn der Höhen-Dienst Fehler liefert, hängt oder verspätet antwortet |
-| `layout` | Beschriftung der Buttons über zwölf Bildschirmbreiten von 320–1280 px |
+| `layout` | Beschriftung der Buttons über zwölf Bildschirmbreiten von 320–1280 px, mit und ohne Aufzeichnung |
 
 CI (`.github/workflows/ci.yml`) läuft bei jedem Push und Pull Request und
 sollte in den Branch-Protection-Regeln als erforderliche Prüfung eingetragen
@@ -253,7 +332,7 @@ tests/
   run.js                 Test-Runner (Suiten auswählen, Ergebnis zusammenfassen)
   harness.js              Browser-/Server-Setup, Netz-Abfang, Leaflet-Cache
   stub.js                 Synthetische Antworten für OSRM/Open-Meteo/Nominatim
-  core.test.js, ui.test.js, elevation.test.js, layout.test.js
+  core.test.js, ui.test.js, return.test.js, elevation.test.js, layout.test.js
   README.md               Ausführliche Test-Dokumentation
 .github/workflows/ci.yml Testlauf bei Push/PR
 ```
@@ -280,3 +359,11 @@ tests/
 - Alles läuft im Browser, ohne eigenes Backend – entsprechend sind
   gespeicherte Routen geräte- bzw. browserlokal (Export/Import als JSON zum
   manuellen Übertragen).
+- Die Aufzeichnung des Hinwegs braucht eine geöffnete Seite. Wird der Browser
+  vom Betriebssystem beendet, endet auch der Zufluss neuer Punkte; die bis
+  dahin aufgezeichnete Strecke bleibt erhalten und die Aufzeichnung läuft beim
+  nächsten Öffnen weiter. Ein Hintergrunddienst wie in einer nativen App ist
+  einer Web-Seite nicht möglich.
+- Wie gut der Rückweg ausweichen kann, hängt am Wegenetz: Wo es nur eine
+  Straße gibt (Brücke, Damm, Tal), bleibt gemeinsame Strecke übrig – die
+  Statuszeile weist sie dann in Prozent aus, statt sie zu verschweigen.
