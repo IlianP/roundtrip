@@ -10,7 +10,7 @@
     --bg:#ffffff; --fg:#1a1d21; --muted:#6b7280; --accent:#1d6ef5; --accent-fg:#fff;
     --ok:#16a34a; --warn:#d97706; --err:#dc2626; --border:#e5e7eb; --card-shadow:0 4px 18px rgba(0,0,0,.16);
     --surface-2:#f1f3f6; --toast-bg:#1a1d21; --toast-fg:#ffffff; --overlay:rgba(0,0,0,.4);
-    --grid:#e5e7eb; --ghost:#8b93a1; --tile-filter:none;
+    --grid:#e5e7eb; --ghost:#8b93a1; --track:#d9600f; --tile-filter:none;
     --radius:14px;
   }
   /* Dunkles Thema: eigene Stufen, keine bloße Umkehrung.
@@ -20,7 +20,7 @@
       --bg:#171a1f; --fg:#e8ebef; --muted:#98a1ae; --accent:#5b9dff; --accent-fg:#0d1117;
       --ok:#4ade80; --warn:#fbbf24; --err:#f87171; --border:#2b313a; --card-shadow:0 4px 22px rgba(0,0,0,.5);
       --surface-2:#232830; --toast-bg:#2b313a; --toast-fg:#e8ebef; --overlay:rgba(0,0,0,.55);
-      --grid:#2b313a; --ghost:#7b8493;
+      --grid:#2b313a; --ghost:#7b8493; --track:#f5a04a;
       --tile-filter:brightness(.72) saturate(.72) contrast(1.06) hue-rotate(185deg) invert(.92);
     }
   }
@@ -28,7 +28,7 @@
     --bg:#171a1f; --fg:#e8ebef; --muted:#98a1ae; --accent:#5b9dff; --accent-fg:#0d1117;
     --ok:#4ade80; --warn:#fbbf24; --err:#f87171; --border:#2b313a; --card-shadow:0 4px 22px rgba(0,0,0,.5);
     --surface-2:#232830; --toast-bg:#2b313a; --toast-fg:#e8ebef; --overlay:rgba(0,0,0,.55);
-    --grid:#2b313a; --ghost:#7b8493;
+    --grid:#2b313a; --ghost:#7b8493; --track:#f5a04a;
     --tile-filter:brightness(.72) saturate(.72) contrast(1.06) hue-rotate(185deg) invert(.92);
   }
   *{box-sizing:border-box; margin:0; padding:0;}
@@ -132,6 +132,21 @@
   .vchip.active .dot{background:var(--accent);}
   .vchip.pending{cursor:default; border-style:dashed;}
   .vchip.pending:hover{background:var(--bg);}
+
+  /* ---------- Aufzeichnung & Rückweg ---------- */
+  #trackBox{display:flex; flex-direction:column; gap:8px; padding-top:10px; border-top:1px solid var(--border);}
+  #trackHead{display:flex; flex-wrap:wrap; align-items:baseline; gap:2px 8px; font-size:12px; color:var(--muted);}
+  #trackTitle{font-weight:600; color:var(--fg); display:flex; align-items:center; gap:6px; white-space:nowrap;}
+  #trackStats{white-space:nowrap; margin-left:auto;}
+  #trackBox .hint{font-size:12px; color:var(--muted); line-height:1.4;}
+  #trackBox .hint b{color:var(--fg); font-weight:600;}
+  #recBtn.rec{background:var(--err); color:#fff; font-weight:600;}
+  .recdot{                                              /* pulsierender Aufnahmepunkt */
+    width:9px; height:9px; border-radius:50%; background:var(--err); flex:none;
+    animation:recBlink 1.6s ease-in-out infinite;
+  }
+  @keyframes recBlink{0%,100%{opacity:1;} 50%{opacity:.2;}}
+  @media (prefers-reduced-motion:reduce){ .recdot{animation:none;} }
 
   /* ---------- Höhenprofil ---------- */
   #elevBox{display:none; flex-direction:column; gap:2px;}
@@ -312,6 +327,21 @@
       <button class="btn iconic" id="shareBtn" disabled title="Teilen und navigieren" aria-label="Teilen und navigieren">📤<span class="lbl"> Teilen</span></button>
     </div>
 
+    <div id="trackBox">
+      <div id="trackHead">
+        <span id="trackTitle">↩️ Rückweg später</span>
+        <span id="trackStats"></span>
+      </div>
+      <div class="btn-row">
+        <button class="btn iconic" id="recBtn" title="Hinweg aufzeichnen" aria-label="Hinweg aufzeichnen">⏺<span class="lbl"> Aufzeichnen</span></button>
+        <button class="btn iconic" id="trackDelBtn" title="Aufzeichnung verwerfen" aria-label="Aufzeichnung verwerfen">🗑️<span class="lbl"> Verwerfen</span></button>
+      </div>
+      <div class="btn-row" id="backRow">
+        <button class="btn primary" id="backBtn">↩️ Rückweg finden</button>
+      </div>
+      <span class="hint" id="trackHint"></span>
+    </div>
+
     <div id="variants"></div>
 
     <div id="elevBox">
@@ -340,6 +370,12 @@
         <input type="checkbox" id="mwInput" checked> Autobahn vermeiden (Auto-Modus)
       </label>
       <span class="hint">Bevorzugt Routen ohne Autobahn-/Schnellstraßenanteile – genau dort entstehen die längsten Stichfahrten ohne Abbiegemöglichkeit.</span>
+    </div>
+    <div class="field">
+      <label class="small" for="detourInput">Rückweg: erlaubter Umweg (%)</label>
+      <input type="number" id="detourInput" min="0" max="300" step="10" value="60">
+      <span class="hint">Wie viel länger als der kürzeste Weg zurück der Rückweg höchstens werden darf, um
+      der aufgezeichneten Strecke auszuweichen. Mehr Umweg = weniger gemeinsame Strecke.</span>
     </div>
     <div class="field">
       <label class="small" for="themeInput">Erscheinungsbild</label>
@@ -395,10 +431,12 @@ const OSRM = {
          "https://router.project-osrm.org/route/v1/driving/"]
 };
 /* Alles Modus-Abhängige an einer Stelle */
+/* maxMs = plausible Höchstgeschwindigkeit (m/s); schnellere Sprünge zwischen
+   zwei Fixes sind GPS-Ausreißer und fliegen aus der Aufzeichnung. */
 const MODES = {
-  foot: { emoji: "🚶", label: "zu Fuß",  gmaps: "walking",   warnKm: 100 },
-  bike: { emoji: "🚴", label: "Fahrrad", gmaps: "bicycling", warnKm: 300 },
-  car:  { emoji: "🚗", label: "Auto",    gmaps: "driving",   warnKm: Infinity }
+  foot: { emoji: "🚶", label: "zu Fuß",  gmaps: "walking",   warnKm: 100,      maxMs: 9 },
+  bike: { emoji: "🚴", label: "Fahrrad", gmaps: "bicycling", warnKm: 300,      maxMs: 25 },
+  car:  { emoji: "🚗", label: "Auto",    gmaps: "driving",   warnKm: Infinity, maxMs: 70 }
 };
 const modeMeta = m => MODES[m] || MODES.foot;
 const MAX_ITER = 8;           // max. Anpassungs-Iterationen pro Versuch
@@ -428,6 +466,18 @@ const MAX_VARIANTS = 3;
 /* Teilen: Genauigkeit der Linien-Vereinfachung im Link */
 const SHARE_TOL_M = 4;
 
+/* Aufzeichnung des Hinwegs */
+const TRACK_KEY = "roundtrip-track";
+const TRACK_MIN_M = 8;        // kleinere Sprünge sind GPS-Rauschen im Stand, kein Weg
+const TRACK_MAX_ACC = 60;     // ungenauere Fixes verfälschen die Strecke mehr, als sie nützen
+const TRACK_SAVE_MS = 3000;   // höchstens so oft in den localStorage schreiben
+
+/* Rückweg-Suche */
+const RETURN_BUDGET = 6;      // max. Routing-Anfragen pro Rückweg
+const RETURN_GOOD_SHARE = 0.15; // ≤15 % gemeinsame Strecke = sofort akzeptieren
+const RETURN_FREE_M = 80;     // Nahbereich um Start und Ziel: Wiederholung unvermeidbar
+const RETURN_MIN_CROW = 150;  // darunter ist man praktisch schon wieder da
+
 /* ================= State ================= */
 let settings = loadSettings();
 let mode = "foot";
@@ -449,6 +499,12 @@ let suppressMapClick = false; // Klick auf eine Ghost-Linie setzt keinen Startpu
 /* Höhenprofil-State */
 let elevSeq = 0;              // laufende Nummer, damit späte Antworten nichts überschreiben
 let elevMarker = null;
+
+/* Aufzeichnung & Rückweg */
+let track = emptyTrack();     // {points:[[lat,lon,t]], distance, recording, startedAt, mode}
+let trackLine = null, trackDestMarker = null;
+let trackTickTimer = null, trackSaveTimer = null;
+let returnRoutes = [];        // schon vorgeschlagene Rückwege – der nächste meidet auch sie
 
 /* Live-Standort-State */
 let livePos = null;           // {lat, lng, accuracy, time}
@@ -512,6 +568,21 @@ function segLen(a, b) { // Haversine in Metern
   const dφ = toRad(b[0] - a[0]), dλ = toRad(b[1] - a[1]);
   const s = Math.sin(dφ / 2) ** 2 + Math.cos(toRad(a[0])) * Math.cos(toRad(b[0])) * Math.sin(dλ / 2) ** 2;
   return 2 * R_EARTH * Math.asin(Math.sqrt(s));
+}
+
+/* Länge eines Linienzugs in Metern */
+function pathLength(coords) {
+  let d = 0;
+  for (let i = 1; i < coords.length; i++) d += segLen(coords[i - 1], coords[i]);
+  return d;
+}
+
+/* Anfangspeilung von a nach b (0° = Nord), Gegenstück zu destPoint */
+function bearingTo(a, b) {
+  const φ1 = toRad(a[0]), φ2 = toRad(b[0]), Δλ = toRad(b[1] - a[1]);
+  const y = Math.sin(Δλ) * Math.cos(φ2);
+  const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+  return (toDeg(Math.atan2(y, x)) + 360) % 360;
 }
 
 /* Route in äquidistante Stützpunkte (~40 m) entlang des Verlaufs zerlegen */
@@ -943,12 +1014,12 @@ async function closeLoopEarly(cand, startLL, targetM, profile, tol) {
 }
 
 /* ================= UI-Aktionen ================= */
-function setStart(latlng, pan) {
+function setStart(latlng, pan, label) {
   cancelSearch();          // laufende Suche gehört zum alten Startpunkt
   start = latlng;
   if (startMarker) startMarker.remove();
-  startMarker = L.marker(latlng, { title: "Start/Ziel" }).addTo(map)
-    .bindPopup("Start & Ziel").openPopup();
+  startMarker = L.marker(latlng, { title: label || "Start/Ziel" }).addTo(map)
+    .bindPopup(label || "Start & Ziel").openPopup();
   if (pan) map.setView(latlng, Math.max(map.getZoom(), 14));
   setStatus("Startpunkt gesetzt. Distanz wählen und <b>Route erzeugen</b>.");
 }
@@ -1087,7 +1158,7 @@ async function generate() {
   const cancelled = () => token !== genToken;
 
   busy = true;
-  genBtn.disabled = true; variantBtn.disabled = true;
+  genBtn.disabled = true; variantBtn.disabled = true; $("backBtn").disabled = true;
   genBtn.innerHTML = '<span class="spinner"></span> Berechne …';
   clearRoute();
   routeCtx = { targetM: km * 1000, profile: mode, tol: settings.tolerance / 100, km };
@@ -1107,6 +1178,7 @@ async function generate() {
     genBtn.disabled = false;
     genBtn.textContent = "Route erzeugen";
     variantBtn.disabled = !lastRoute;
+    $("backBtn").disabled = false;
   }
 }
 
@@ -1541,7 +1613,8 @@ async function defaultRouteName() {
     place = a.suburb || a.village || a.town || a.city_district || a.city || a.municipality || a.county || "";
   } catch { /* offline → ohne Ort */ }
   const km = (lastRoute.distance / 1000).toLocaleString("de-DE", { maximumFractionDigits: 1 });
-  return `${place ? place + " · " : ""}${km} km ${modeMeta(mode).emoji}`;
+  const kind = lastRoute.kind === "return" ? "↩️ " : "";
+  return `${kind}${place ? place + " · " : ""}${km} km ${modeMeta(mode).emoji}`;
 }
 
 async function saveCurrentRoute() {
@@ -1550,7 +1623,8 @@ async function saveCurrentRoute() {
   const name = await defaultRouteName();
   savedRoutes.unshift({
     id: Date.now(), name, createdAt: new Date().toISOString(),
-    mode, targetKm: parseFloat(distInput.value) || 0,
+    mode, kind: lastRoute.kind || "loop",
+    targetKm: lastRoute.kind === "return" ? 0 : parseFloat(distInput.value) || 0,
     start: { lat: start.lat, lng: start.lng },
     distance: lastRoute.distance, duration: lastRoute.duration, overlap: lastRoute.overlap || 0,
     waypoints: (lastRoute.waypoints || []).map(p => [+p[0].toFixed(5), +p[1].toFixed(5)]),
@@ -1633,7 +1707,8 @@ function renderRoutes() {
     const mm = modeMeta(r.mode);
     const hm = r.elev && r.elev.length > 1 ? ` · ↑ ${Math.round(elevStats(smoothElev(r.elev)).asc)} hm` : "";
     div.querySelector(".rmeta").textContent =
-      `${new Date(r.createdAt).toLocaleDateString("de-DE")} · ${fmtDist(r.distance)} · ca. ${fmtDur(r.duration)}${hm} · ${mm.emoji} ${mm.label}`;
+      `${new Date(r.createdAt).toLocaleDateString("de-DE")} · ${fmtDist(r.distance)} · ca. ${fmtDur(r.duration)}${hm}` +
+      ` · ${mm.emoji} ${mm.label}${r.kind === "return" ? " · ↩️ Rückweg" : ""}`;
     div.querySelector('[data-act=load]').onclick = () => loadSavedRoute(r);
     div.querySelector('[data-act=rename]').onclick = () => {
       const n = prompt("Neuer Name:", r.name);
@@ -1657,9 +1732,10 @@ function loadSavedRoute(r) {
   variants = []; activeVariant = 0;
   routeCtx = { targetM: (r.targetKm || r.distance / 1000) * 1000, profile: mode,
                tol: settings.tolerance / 100, km: r.targetKm || r.distance / 1000 };
-  setStart(L.latLng(r.start.lat, r.start.lng), false);
+  setStart(L.latLng(r.start.lat, r.start.lng), false,
+           r.kind === "return" ? "Hier startet der Rückweg" : undefined);
   drawRoute({
-    coords: r.coords, waypoints: r.waypoints || [],
+    coords: r.coords, waypoints: r.waypoints || [], kind: r.kind || "loop",
     distance: r.distance, duration: r.duration, overlap: r.overlap || 0,
     elev: r.elev && r.elev.length > 1 ? r.elev : null,
     dev: r.targetKm ? Math.abs(r.distance - r.targetKm * 1000) / (r.targetKm * 1000) : 0
@@ -1726,6 +1802,7 @@ function scheduleLiveRender() {
 function onLivePos(pos, immediate) {
   livePos = { lat: pos.coords.latitude, lng: pos.coords.longitude,
               accuracy: pos.coords.accuracy, time: Date.now() };
+  trackAddPoint(livePos);      // zeichnet nur auf, wenn die Aufzeichnung läuft
   if (liveBtnEl) { liveBtnEl.classList.remove("denied"); liveBtnEl.title = "Start auf aktuellen Standort setzen"; }
   if (immediate) {
     clearTimeout(liveRenderTimer); liveRenderTimer = null;
@@ -1787,6 +1864,370 @@ document.addEventListener("visibilitychange", () => {
   if (!document.hidden && liveWatchId !== null) pollLiveOnce();
 });
 
+/* ================= Rückweg („Roundtrip But Later") =================
+   Zwei Schritte, die zeitlich weit auseinanderliegen dürfen:
+
+   1. Der Hinweg von A nach B wird per GPS mitgeschrieben (jeder Live-Fix
+      landet gefiltert in `track`). Die Aufzeichnung liegt im localStorage
+      und übersteht deshalb einen Neustart der Seite.
+   2. Später genügt ein Knopfdruck: Von dort, wo man gerade steht, sucht die
+      App einen Weg zurück zum Ausgangspunkt, der die aufgezeichnete Strecke
+      möglichst wenig wiederholt.
+
+   Zu 2. gibt es keine Router-Funktion „meide diese Linie" – die freien
+   OSRM-Server können weder `exclude` auf Flächen noch Sperrungen. Also
+   erzwingt die Suche das Ausweichen geometrisch: Zwischenpunkte auf einem
+   Bogen, der sich zur Gegenseite des Hinwegs wölbt. Jeder Kandidat wird
+   danach bewertet, wie viel von ihm tatsächlich auf dem Hinweg verläuft
+   (`nearFraction`) und wie teuer der Umweg dafür ist. */
+
+function emptyTrack() {
+  return { points: [], distance: 0, recording: false, startedAt: null, mode: "foot" };
+}
+const trackCoords = () => track.points.map(p => [p[0], p[1]]);
+const trackHasData = () => track.points.length >= 2;
+
+/* ---------- Aufzeichnung ---------- */
+/* Schreiben ist gedrosselt: ein Fix alle paar Sekunden soll nicht jedes Mal
+   die ganze Strecke neu serialisieren. Beim Stoppen und beim Verlassen der
+   Seite wird sofort geschrieben. */
+function writeTrack() {
+  try {
+    if (!track.points.length) localStorage.removeItem(TRACK_KEY);
+    else localStorage.setItem(TRACK_KEY, JSON.stringify(track));
+  } catch { /* privater Modus oder Speicher voll – die Fahrt läuft trotzdem weiter */ }
+}
+function persistTrack(now) {
+  if (now) { clearTimeout(trackSaveTimer); trackSaveTimer = null; writeTrack(); return; }
+  if (!trackSaveTimer) trackSaveTimer = setTimeout(() => { trackSaveTimer = null; writeTrack(); }, TRACK_SAVE_MS);
+}
+
+/* Nimmt einen Live-Fix in die Aufzeichnung auf – oder eben nicht: zu ungenau,
+   zu nah am letzten Punkt (Rauschen im Stand) oder ein Sprung, den man in der
+   Zeit gar nicht zurücklegen kann. Liefert true, wenn der Punkt gezählt wurde. */
+function trackAddPoint(p) {
+  if (!track.recording || !p || !isFinite(p.lat) || !isFinite(p.lng)) return false;
+  if (p.accuracy > TRACK_MAX_ACC) return false;
+  const pt = [+p.lat.toFixed(5), +p.lng.toFixed(5), p.time || Date.now()];
+  const last = track.points[track.points.length - 1];
+  if (last) {
+    const d = segLen([last[0], last[1]], [pt[0], pt[1]]);
+    if (d < TRACK_MIN_M) return false;
+    // Zeitfenster mindestens 3 s: nach einer Pause im Hintergrund ist auch ein
+    // großer Abstand echt, nur der unmögliche Sprung soll auffliegen.
+    const dt = Math.max(3, (pt[2] - last[2]) / 1000);
+    if (d > modeMeta(track.mode).maxMs * dt) return false;
+    track.distance += d;
+  }
+  track.points.push(pt);
+  renderTrack();
+  // Die ersten beiden Punkte schalten Verwerfen und Rückweg frei; danach genügt
+  // es, die Zahlen fortzuschreiben – der Rest der Box ändert sich nicht mehr.
+  if (track.points.length <= 2) renderTrackUI();
+  else renderTrackStats();
+  persistTrack();
+  return true;
+}
+
+function startRecording(resume) {
+  if (!navigator.geolocation) { toast("Dieses Gerät liefert keinen Standort."); return false; }
+  if (!secureEnough()) { toast("Aufzeichnung braucht HTTPS oder localhost."); return false; }
+  track.recording = true;
+  if (!track.startedAt) track.startedAt = Date.now();
+  if (!resume) track.mode = mode;
+  startLiveTracking();                       // war vielleicht gestoppt (z. B. nach Verweigerung)
+  if (livePos && Date.now() - livePos.time < LIVE_FRESH_MS) trackAddPoint(livePos);
+  else if (navigator.geolocation) navigator.geolocation.getCurrentPosition(
+    pos => onLivePos(pos, true), onLiveError, { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 });
+  clearInterval(trackTickTimer);
+  trackTickTimer = setInterval(renderTrackStats, 1000);   // Dauer soll auch im Stehen weiterlaufen
+  persistTrack(true);
+  renderTrackUI();
+  if (!resume) toast("Aufzeichnung läuft – der Hinweg wird mitgeschrieben.");
+  return true;
+}
+
+function stopRecording() {
+  if (!track.recording) return;
+  track.recording = false;
+  clearInterval(trackTickTimer); trackTickTimer = null;
+  persistTrack(true);
+  renderTrackUI();
+}
+
+function discardTrack() {
+  if (trackHasData() && !confirm("Aufgezeichnete Strecke verwerfen?")) return;
+  track = emptyTrack();
+  returnRoutes = [];
+  clearInterval(trackTickTimer); trackTickTimer = null;
+  persistTrack(true);
+  renderTrack();
+  renderTrackUI();
+}
+
+/* Beim Laden: liegt eine Aufzeichnung im Speicher, kommt sie zurück auf die
+   Karte – lief sie noch, wird sie fortgesetzt. Genau dafür ist das Ganze da:
+   Die App darf zwischen Hin- und Rückweg geschlossen worden sein. */
+function restoreTrack(applyMode) {
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(TRACK_KEY)); } catch { saved = null; }
+  const pts = saved && Array.isArray(saved.points)
+    ? saved.points.filter(p => Array.isArray(p) && isFinite(p[0]) && isFinite(p[1]))
+    : [];
+  if (!pts.length) { renderTrackUI(); return false; }
+  track = { points: pts, distance: 0, recording: !!saved.recording,
+            startedAt: saved.startedAt || pts[0][2] || null,
+            mode: MODES[saved.mode] ? saved.mode : "foot" };
+  // Länge lieber neu rechnen als der gespeicherten Zahl vertrauen
+  track.distance = pathLength(trackCoords());
+  if (applyMode) setMode(track.mode);
+  renderTrack();
+  if (track.recording && !startRecording(true)) track.recording = false;
+  renderTrackUI();
+  return true;
+}
+
+/* ---------- Darstellung ---------- */
+function renderTrack() {
+  const coords = trackCoords();
+  if (coords.length < 2) {
+    if (trackLine) { trackLine.remove(); trackLine = null; }
+    if (trackDestMarker) { trackDestMarker.remove(); trackDestMarker = null; }
+    return;
+  }
+  if (trackLine) trackLine.setLatLngs(coords);
+  else trackLine = L.polyline(coords, { color: cssVar("--track"), weight: 4, opacity: .85,
+                                        interactive: false }).addTo(map);
+  if (trackDestMarker) trackDestMarker.setLatLng(coords[0]);
+  else trackDestMarker = L.circleMarker(coords[0], { radius: 7, color: cssVar("--bg"), weight: 3,
+                                                     fillColor: cssVar("--track"), fillOpacity: 1 })
+    .addTo(map).bindTooltip("Start der Aufzeichnung – hierhin führt der Rückweg");
+}
+
+function trackDuration() {
+  if (!track.points.length) return 0;
+  const first = track.points[0][2], last = track.points[track.points.length - 1][2];
+  return Math.max(0, ((track.recording ? Date.now() : last) - first) / 1000);
+}
+
+function renderTrackStats() {
+  $("trackStats").textContent = track.points.length
+    ? `${fmtDist(track.distance)} · ${fmtDur(trackDuration())} · ${track.points.length} Punkte`
+    : "";
+}
+
+function renderTrackUI() {
+  const rec = track.recording, has = trackHasData();
+  $("trackTitle").innerHTML = rec ? '<span class="recdot"></span> Aufzeichnung läuft'
+                            : has ? "↩️ Hinweg aufgezeichnet"
+                                  : "↩️ Rückweg später";
+  const recBtn = $("recBtn");
+  recBtn.classList.toggle("rec", rec);
+  recBtn.innerHTML = rec ? '⏹<span class="lbl"> Stopp</span>'
+                         : track.points.length ? '⏺<span class="lbl"> Weiter</span>'
+                                               : '⏺<span class="lbl"> Aufzeichnen</span>';
+  const recLabel = rec ? "Aufzeichnung beenden"
+                       : track.points.length ? "Aufzeichnung fortsetzen" : "Hinweg aufzeichnen";
+  recBtn.title = recLabel;
+  recBtn.setAttribute("aria-label", recLabel);
+
+  $("trackDelBtn").style.display = track.points.length ? "" : "none";
+  $("backRow").style.display = has ? "" : "none";
+  $("backBtn").textContent = returnRoutes.length ? "🎲 Anderer Rückweg" : "↩️ Rückweg finden";
+  $("trackHint").innerHTML = rec
+    ? "Läuft weiter, solange die Seite offen ist – und übersteht einen Neustart."
+    : has ? `Der Rückweg startet dort, wo du gerade stehst, und meidet die aufgezeichneten <b>${fmtDist(track.distance)}</b>.`
+          : "Zeichnet den Hinweg per GPS auf. Später führt ein Knopfdruck auf einem anderen Weg zurück.";
+  renderTrackStats();
+}
+
+/* ---------- Rückweg suchen ---------- */
+/* Anteil einer Route, der nahe (≤ ~70 m) an einer der übergebenen Linien
+   verläuft – dasselbe Rasterverfahren wie overlapAnalysis, nur zwischen
+   verschiedenen Linien statt innerhalb einer. Der Nahbereich um Start und
+   Ziel zählt nicht mit: Dort gibt es nur eine Haustür, die Wiederholung ist
+   unvermeidbar und wäre als Malus unfair. */
+function nearFraction(coords, lines, freeR, freePts) {
+  const { pts, total } = routeSamples(coords);
+  if (!total) return 0;
+  const CELL = 35;
+  const lat0 = toRad(coords[0][0]);
+  const dLat = CELL / 111320, dLon = CELL / (111320 * Math.max(0.2, Math.cos(lat0)));
+  const grid = new Set();
+  for (const line of lines) {
+    if (!line || line.length < 2) continue;
+    // Feiner abtasten als das Raster grob ist, sonst entstehen Lücken in der Belegung
+    for (const q of routeSamples(line, CELL / 2).pts)
+      grid.add(Math.floor(q.lat / dLat) + ":" + Math.floor(q.lon / dLon));
+  }
+  if (!grid.size) return 0;
+
+  let dup = 0, counted = 0;
+  for (const p of pts) {
+    if (freeR && freePts.some(f => segLen([p.lat, p.lon], f) < freeR)) continue;
+    counted += p.w;
+    const cy = Math.floor(p.lat / dLat), cx = Math.floor(p.lon / dLon);
+    let near = false;
+    check:
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++)
+      if (grid.has((cy + dy) + ":" + (cx + dx))) { near = true; break check; }
+    if (near) dup += p.w;
+  }
+  return counted ? dup / counted : 0;
+}
+
+/* Auf welcher Seite der Luftlinie liegt die aufgezeichnete Strecke? Der
+   Rückweg wölbt sich dann zur Gegenseite – das trifft schneller als blindes
+   Ausprobieren beider Seiten. Weiter entfernte Punkte wiegen mehr. */
+function sideOfLine(from, to, coords) {
+  const brg = bearingTo(from, to);
+  let sum = 0;
+  for (const c of coords) {
+    const d = segLen(from, c);
+    if (d < 1) continue;
+    const diff = ((bearingTo(from, c) - brg + 540) % 360) - 180;   // −180 … +180
+    sum += Math.sign(diff) * d;
+  }
+  return sum >= 0 ? 1 : -1;                                        // +1 = rechts der Luftlinie
+}
+
+/* Zwischenpunkte auf einem Bogen von „from" nach „to": entlang der Luftlinie
+   verteilt und senkrecht dazu ausgelenkt, in der Mitte am stärksten. */
+function arcWaypoints(from, to, side, bulgeM, n) {
+  const brg = bearingTo(from, to), d = segLen(from, to);
+  const out = [];
+  for (let k = 1; k <= n; k++) {
+    const t = k / (n + 1);
+    const base = destPoint(from[0], from[1], brg, d * t);
+    out.push(destPoint(base[0], base[1], (brg + side * 90 + 360) % 360, Math.sin(Math.PI * t) * bulgeM));
+  }
+  return out;
+}
+
+/* Gemeinsame Strecke wiegt am schwersten; der Umweg kostet erst, wenn er die
+   eingestellte Grenze reißt. Eine Stichfahrt im Rückweg selbst (self) ist
+   ebenfalls unerwünscht, aber halb so schlimm. */
+function returnScoreOf(c, maxRatio) {
+  return c.avoid + Math.max(0, c.ratio - maxRatio) * 1.5 + (c.self || 0) * 0.5;
+}
+
+async function searchReturn(from, to, profile, onProgress, cancelled) {
+  const trackLineCoords = trackCoords();
+  const avoidLines = [trackLineCoords, ...returnRoutes];   // auch schon vorgeschlagene Rückwege meiden
+  const freePts = [from, to];
+  const freeR = Math.min(300, Math.max(RETURN_FREE_M, track.distance * 0.03));
+  const maxRatio = 1 + Math.max(0, settings.returnDetour) / 100;
+  const crow = segLen(from, to);
+  let requests = 0, base = null, best = null;
+
+  const tryWaypoints = async wps => {
+    if (requests >= RETURN_BUDGET || cancelled()) return null;
+    requests++;
+    onProgress(`<span class="spinner spinner-inline"></span> Suche Rückweg … (Versuch ${requests})`);
+    let r;
+    try { r = await osrmRoute([from, ...wps, to], profile); } catch { return null; }
+    if (cancelled() || !r || r.distance < 50 || (r.avgSnap || 0) > MAX_SNAP_M) return null;
+    const cand = { ...r, waypoints: wps, kind: "return",
+                   shared: nearFraction(r.coords, [trackLineCoords], freeR, freePts),
+                   avoid: nearFraction(r.coords, avoidLines, freeR, freePts),
+                   self: overlapFraction(r.coords) };
+    // Der erste Treffer ist der kürzeste Rückweg und damit der Maßstab für den
+    // Umweg. Fällt er aus (Router-Fehler), dient eben der nächste als Maßstab.
+    if (!base) base = cand;
+    cand.ratio = cand.distance / Math.max(base.distance, 1);
+    if (!best || returnScoreOf(cand, maxRatio) < returnScoreOf(best, maxRatio)) best = cand;
+    return cand;
+  };
+  const goodEnough = c => c && c.ratio <= maxRatio &&
+                          c.shared <= RETURN_GOOD_SHARE && c.avoid <= RETURN_GOOD_SHARE;
+
+  // 1. Der direkte Rückweg. Oft schon ein anderer Weg als der Hinweg – dann ist
+  //    er auch der kürzeste und die Suche ist hier zu Ende.
+  const direct = await tryWaypoints([]);
+  if (goodEnough(direct)) return { cand: direct, base, requests };
+
+  // 2. Sonst über Bögen ausweichen: erst zur Gegenseite des Hinwegs, mit
+  //    wachsender Auslenkung, dazwischen ein Versuch auf der anderen Seite.
+  const away = -sideOfLine(from, to, trackLineCoords);
+  const plan = [[away, 0.35, 1], [away, 0.65, 2], [-away, 0.35, 1], [away, 1.0, 2], [-away, 0.7, 2]];
+  for (const [side, f, n] of plan) {
+    if (requests >= RETURN_BUDGET || cancelled()) break;
+    await sleep(ITER_DELAY_MS);
+    const cand = await tryWaypoints(arcWaypoints(from, to, side, Math.max(180, crow * f), n));
+    if (goodEnough(cand)) return { cand, base, requests };
+  }
+  return best ? { cand: best, base, requests } : null;
+}
+
+function showReturnStatus(route, base) {
+  const pct = (v, d = 0) => (v * 100).toLocaleString("de-DE", { maximumFractionDigits: d });
+  const shareCls = route.shared <= RETURN_GOOD_SHARE ? "ok" : "warn";
+  const detour = base && base.distance ? route.distance / base.distance - 1 : 0;
+  setStatus(
+    `↩️ Rückweg · <span class="ok">${fmtDist(route.distance)}</span> · ca. ${fmtDur(route.duration)}` +
+    ` · gemeinsam mit dem Hinweg: <span class="${shareCls}">${pct(route.shared)} %</span>` +
+    (detour > 0.02 ? ` · ${pct(detour)} % Umweg` : "") +
+    (route.shared > RETURN_GOOD_SHARE ? " – mehr Ausweichmöglichkeiten gab das Wegenetz nicht her" : "")
+  );
+}
+
+/* Der eine Knopfdruck: Aufzeichnung beenden, Standort bestimmen, Rückweg suchen,
+   anzeigen. Das Ergebnis ist eine ganz normale Route – Höhenprofil, Teilen,
+   GPX, Navigation und Speichern funktionieren wie bei einem Rundkurs. */
+async function findReturn() {
+  if (busy) return;
+  if (!trackHasData()) { toast("Es ist noch keine Strecke aufgezeichnet."); return; }
+  if (track.recording) stopRecording();          // angekommen – damit ist der Hinweg fertig
+  const coords = trackCoords();
+  const to = coords[0];
+  // „Wo ich jetzt stehe" schlägt „wo die Aufzeichnung endete" – zwischen beidem
+  // können Stunden liegen. Ohne frischen Fix bleibt das Ende der Aufzeichnung.
+  const here = livePos && Date.now() - livePos.time < LIVE_FRESH_MS
+    ? [livePos.lat, livePos.lng] : coords[coords.length - 1];
+  const crow = segLen(here, to);
+  if (crow < RETURN_MIN_CROW) {
+    setStatus(`Nur noch ${Math.round(crow)} m Luftlinie bis zum Startpunkt – dafür lohnt kein Rückweg.`);
+    return;
+  }
+
+  cancelSearch();
+  setStart(L.latLng(here[0], here[1]), false, "Hier startet der Rückweg");
+  const token = genToken;
+  const cancelled = () => token !== genToken;
+
+  busy = true;
+  const backBtn = $("backBtn");
+  backBtn.disabled = true; genBtn.disabled = true; variantBtn.disabled = true;
+  backBtn.innerHTML = '<span class="spinner"></span> Suche …';
+  clearRoute();
+  routeCtx = { targetM: 0, profile: mode, tol: settings.tolerance / 100, km: 0 };
+
+  try {
+    const res = await searchReturn(here, to, mode, msg => { if (!cancelled()) setStatus(msg); }, cancelled);
+    if (cancelled()) return;
+    if (!res) throw new Error("Kein Rückweg gefunden – hier liefert der Router nichts.");
+    routeCtx = { targetM: res.cand.distance, profile: mode,
+                 tol: settings.tolerance / 100, km: res.cand.distance / 1000 };
+    // Der nächste Vorschlag meidet auch diesen – aber nur die jüngsten vier,
+    // sonst bleibt nach genug Knopfdrücken gar kein Weg mehr übrig.
+    returnRoutes = returnRoutes.concat([res.cand.coords]).slice(-4);
+    drawRoute(res.cand, { fit: false });
+    // Hin- und Rückweg gehören zusammen: beide ins Bild holen
+    const bounds = routeLine.getBounds();
+    if (trackLine) bounds.extend(trackLine.getBounds());
+    map.fitBounds(bounds, { padding: [40, 40] });
+    variantBtn.disabled = true;                  // Würfeln gehört zum Rundkurs, nicht zum Rückweg
+    showReturnStatus(res.cand, res.base);
+  } catch (e) {
+    if (!cancelled()) setStatus(`<span class="err">${e.message}</span>`);
+  } finally {
+    busy = false;
+    genBtn.disabled = false;
+    backBtn.disabled = false;
+    renderTrackUI();                             // setzt die Beschriftung des Knopfes zurück
+  }
+}
+
 /* ================= Standort-Button & Suche ================= */
 /* Setzt den blauen Start-Marker auf den aktuellen Standort. Ist ein frischer
    Live-Fix vorhanden, geht das ohne Wartezeit. */
@@ -1841,8 +2282,9 @@ async function doSearch(q) {
 function loadSettings() {
   try {
     const s = JSON.parse(localStorage.getItem("roundtrip-settings"));
-    return { tolerance: s?.tolerance ?? 5, avoidMotorway: s?.avoidMotorway ?? true, theme: s?.theme ?? "auto" };
-  } catch { return { tolerance: 5, avoidMotorway: true, theme: "auto" }; }
+    return { tolerance: s?.tolerance ?? 5, avoidMotorway: s?.avoidMotorway ?? true,
+             returnDetour: s?.returnDetour ?? 60, theme: s?.theme ?? "auto" };
+  } catch { return { tolerance: 5, avoidMotorway: true, returnDetour: 60, theme: "auto" }; }
 }
 function saveSettings() {
   try { localStorage.setItem("roundtrip-settings", JSON.stringify(settings)); } catch { /* privater Modus */ }
@@ -1865,6 +2307,9 @@ function applyTheme() {
   wpMarkers.forEach(m => m.setStyle({ color: bg, fillColor: accent }));
   ghostLines.forEach(l => l.setStyle({ color: ghost }));
   if (elevMarker) elevMarker.setStyle({ color: bg, fillColor: accent });
+  const trackCol = cssVar("--track");
+  if (trackLine) trackLine.setStyle({ color: trackCol });
+  if (trackDestMarker) trackDestMarker.setStyle({ color: bg, fillColor: trackCol });
 }
 darkQuery.addEventListener("change", () => { if ((settings.theme || "auto") === "auto") applyTheme(); });
 
@@ -1873,7 +2318,7 @@ const $ = id => document.getElementById(id);
 const distInput = $("distInput"), genBtn = $("genBtn"), variantBtn = $("variantBtn"),
       shareBtn = $("shareBtn"), saveBtn = $("saveBtn"), locateBtn = $("locateBtn"), statusEl = $("status"),
       searchInput = $("searchInput"), searchResults = $("searchResults"),
-      modalBg = $("modalBg"), tolInput = $("tolInput"), mwInput = $("mwInput"),
+      modalBg = $("modalBg"), tolInput = $("tolInput"), mwInput = $("mwInput"), detourInput = $("detourInput"),
       themeInput = $("themeInput"), toastEl = $("toast");
 
 function setStatus(html) { statusEl.innerHTML = html; }
@@ -1895,6 +2340,13 @@ genBtn.onclick = () => generate();
 variantBtn.onclick = () => generate();
 saveBtn.onclick = saveCurrentRoute;
 locateBtn.onclick = locate;
+
+/* ---------- Aufzeichnung & Rückweg ---------- */
+$("recBtn").onclick = () => { if (track.recording) stopRecording(); else startRecording(); };
+$("trackDelBtn").onclick = discardTrack;
+$("backBtn").onclick = () => findReturn();
+/* Wegwischen, App-Wechsel, Neuladen: die Aufzeichnung darf nichts verlieren */
+window.addEventListener("pagehide", () => persistTrack(true));
 
 /* ---------- Teilen & Navigation ---------- */
 const shareBg = $("shareBg");
@@ -1961,6 +2413,7 @@ document.addEventListener("click", e => { if (!$("searchWrap").contains(e.target
 $("gearBtn").onclick = () => {
   tolInput.value = settings.tolerance;
   mwInput.checked = settings.avoidMotorway;
+  detourInput.value = settings.returnDetour;
   themeInput.value = settings.theme || "auto";
   modalBg.style.display = "flex";
 };
@@ -1970,11 +2423,13 @@ themeInput.onchange = () => { settings.theme = themeInput.value; applyTheme(); }
 $("modalSave").onclick = () => {
   settings.tolerance = Math.min(50, Math.max(1, parseFloat(tolInput.value) || 5));
   settings.avoidMotorway = mwInput.checked;
+  settings.returnDetour = Math.min(300, Math.max(0, parseFloat(detourInput.value) || 0));
   settings.theme = themeInput.value;
   saveSettings();
   applyTheme();
   modalBg.style.display = "none";
-  toast(`Gespeichert: ±${settings.tolerance} % Toleranz, Autobahn ${settings.avoidMotorway ? "vermeiden" : "erlaubt"}`);
+  toast(`Gespeichert: ±${settings.tolerance} % Toleranz, Autobahn ${settings.avoidMotorway ? "vermeiden" : "erlaubt"}, ` +
+        `Rückweg-Umweg ${settings.returnDetour} %`);
 };
 
 /* Beim Laden: Thema setzen, geteilten Link öffnen, Live-Standort verfolgen
@@ -1983,6 +2438,7 @@ $("modalSave").onclick = () => {
 applyTheme();
 const openedShared = loadFromHash();
 if (openedShared) liveFirstFix = false;
+restoreTrack(!openedShared);      // Verkehrsmittel der Aufzeichnung nur ohne geteilte Route
 startLiveTracking();
 </script>
 </body>

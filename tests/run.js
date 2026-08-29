@@ -10,6 +10,7 @@ const { launch, LIVE } = require("./harness");
 const SUITES = {
   core: "./core.test.js",
   ui: "./ui.test.js",
+  return: "./return.test.js",
   elevation: "./elevation.test.js",
   layout: "./layout.test.js"
 };

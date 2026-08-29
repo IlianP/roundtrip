@@ -42,14 +42,23 @@ Container keine eigene Zertifikatskette braucht.
 Läuft eine Adresse auf, die weder abgedeckt noch lokal ist, meldet der Lauf sie
 am Ende als „nicht abgedeckte Adresse“ – dann gehört sie in `stub.js`.
 
+## Standort ohne GPS
+
+Die Suite `return` braucht Positionsdaten. Statt Playwright echte Fixes
+einspielen zu lassen (Berechtigung, Zeitverhalten, Wartezeiten), ruft sie
+`onLivePos()` direkt auf – genau die Funktion, in der auch `watchPosition()`
+landet. Filter, Längenberechnung, Karte, Speicherung und Rückweg-Suche laufen
+damit vollständig durch, nur die Browser-Schnittstelle davor ist ersetzt.
+
 ## Suiten
 
 | Suite | Prüft |
 | --- | --- |
 | `core` | Rechenkern: Link-Kodierung, Linien-Vereinfachung, Abtastung, Höhen-Statistik samt Glättung, Doppelstrecken- und Rundheits-Metrik, Anzeigeformate |
 | `ui` | Ablauf: Route erzeugen, Varianten im Hintergrund, Höhenprofil samt Zeiger, Teilen-Link (in zweitem Tab geöffnet), Navi-Link, Speichern/Export/Import, Thema, Panel, Fahrrad, unroutbarer Start |
+| `return` | Rückweg: Aufzeichnung samt Filtern, Speicherung über ein Neuladen hinweg, Maß für gemeinsame Strecke, Rückweg-Suche (auch der zweite Vorschlag), Speichern, Sonderfälle |
 | `elevation` | Verhalten, wenn der Höhen-Dienst Fehler liefert, hängt oder verspätet antwortet |
-| `layout` | Beschriftung der Buttons über zwölf Bildschirmbreiten von 320 bis 1280 px: nichts läuft über, Symbole nur bei wenig Platz, Bezeichnungen für Vorlesehilfen bleiben |
+| `layout` | Beschriftung der Buttons über zwölf Bildschirmbreiten von 320 bis 1280 px, jeweils ohne und mit Aufzeichnung: nichts läuft über oder ragt aus dem Panel, Symbole nur bei wenig Platz, Bezeichnungen für Vorlesehilfen bleiben |
 
 ## Wenn ein Test rot ist
 
