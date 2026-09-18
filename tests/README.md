@@ -58,6 +58,7 @@ damit vollständig durch, nur die Browser-Schnittstelle davor ist ersetzt.
 | `ui` | Ablauf: Route erzeugen, Varianten im Hintergrund, Höhenprofil samt Zeiger, Teilen-Link (in zweitem Tab geöffnet), Navi-Link, Speichern/Export/Import, Thema, Panel, Fahrrad, unroutbarer Start |
 | `return` | Rückweg: Aufzeichnung samt Filtern, Speicherung über ein Neuladen hinweg, Maß für gemeinsame Strecke, Rückweg-Suche (auch der zweite Vorschlag), Speichern, Sonderfälle |
 | `elevation` | Verhalten, wenn der Höhen-Dienst Fehler liefert, hängt oder verspätet antwortet |
+| `climb` | Höhenmeter-Wunsch: Interpolation im Gelände-Raster, Schätzung gegen eine schiefe Ebene (nachrechenbar), Strafe im Score, eine einzige Scan-Anfrage samt Cache, Knopf und Popover, und dass „bergig“ tatsächlich eine andere Richtung findet als „flach“ |
 | `layout` | Beschriftung der Buttons über zwölf Bildschirmbreiten von 320 bis 1280 px, jeweils ohne und mit Aufzeichnung: nichts läuft über oder ragt aus dem Panel, Symbole nur bei wenig Platz, Bezeichnungen für Vorlesehilfen bleiben |
 
 ## Wenn ein Test rot ist
