@@ -59,8 +59,20 @@ async function launch() {
   const browser = await chromium.launch({ args: ["--no-sandbox"] });
   const state = { browser, server, port, url: `http://127.0.0.1:${port}/index.html`, unstubbed: [], requests: [] };
 
+  /* Die Einstiegstour legt sich beim allerersten Öffnen über die Seite – genau
+     das soll sie. Für alle Suiten außer `tour` wird deshalb der Zustand
+     hinterlegt, den ein Nutzer hat, der die Einführung weggeklickt hat: keine
+     Tour, keine Einzelhinweise. Sonst prüfte jede Suite gegen ein Overlay statt
+     gegen die Bedienung. Mit { tour: true } bleibt der erste Besuch ein erster
+     Besuch. */
   state.newPage = async (opts = {}) => {
     const page = await browser.newPage({ viewport: opts.viewport || { width: 1000, height: 780 } });
+    if (!opts.tour) await page.addInitScript(() => {
+      try {
+        localStorage.setItem("roundtrip-tour",
+          JSON.stringify({ v: 1, done: true, skipped: true, seen: {} }));
+      } catch { /* im Test nie erwartet */ }
+    });
     page.errors = [];
     page.on("pageerror", e => page.errors.push("PAGEERROR: " + e.message));
     page.on("console", m => {

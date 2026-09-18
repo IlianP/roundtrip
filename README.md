@@ -20,6 +20,7 @@ kein Bundler, kein Backend. Öffnen (lokal oder gehostet) genügt.
 - [Funktionen im Detail](#funktionen-im-detail)
 - [Der Rundkurs-Algorithmus](#der-rundkurs-algorithmus)
 - [Der Höhenmeter-Wunsch](#der-höhenmeter-wunsch)
+- [Die Einstiegstour](#die-einstiegstour)
 - [Der Rückweg („Roundtrip But Later")](#der-rückweg-roundtrip-but-later)
 - [Verwendete Dienste](#verwendete-dienste)
 - [Architektur der `index.html`](#architektur-der-indexhtml)
@@ -107,6 +108,10 @@ npm test
 - **Live-Standort**: dauerhaft blinkender Standortpunkt samt
   Genauigkeitskreis (wie in Google Maps), erkennt veraltete Fixes (grau,
   Blinken aus) und Berechtigungsverweigerung.
+- **Einstiegstour**: Beim allerersten Öffnen fünf kurze Schritte durch die
+  Bedienung – der Rest abgedunkelt, der erklärte Bereich hervorgehoben (siehe
+  [unten](#die-einstiegstour)). Über die Einstellungen jederzeit wieder
+  abrufbar.
 - **Hell/Dunkel-Thema**: automatisch (Systemeinstellung) oder manuell,
   inklusive angepasster Kartenkacheln per CSS-Filter.
 - **Responsives Layout**: Panel wird auf schmalen Bildschirmen zur
@@ -319,6 +324,44 @@ vier Knopfdrücke 559 m / 988 m / 1039 m / 1192 m mit 31 / 16 / 12 / 13 %
 gemeinsamer Strecke – vorher war es ab dem zweiten Druck jedes Mal derselbe
 335-m-Weg mit 56 % Hinweg-Anteil.
 
+## Die Einstiegstour
+
+Beim allerersten Öffnen legt sich ein Dunkel über die Seite, in dem genau ein
+Bereich ausgespart und umrandet ist; daneben steht eine kurze Sprechblase.
+Fünf Schritte, keine Minute: **Startpunkt**, **Distanz & Verkehrsmittel**,
+**Route erzeugen**, **Höhenmeter-Wunsch**, **Rückweg später**. Teilen, Speichern
+und Einstellungen kommen nicht vor – selbsterklärende Symbole brauchen keinen
+Vortrag.
+
+Die Aussparung entsteht ohne zweite Ebene: ein durchsichtiger Kasten mit
+einem Schlagschatten, der größer ist als der Bildschirm (`box-shadow: 0 0 0
+9999px`). Der Kasten wandert samt Sprechblase zum jeweiligen Element, die
+Sprechblase kippt nach oben, wenn darunter kein Platz ist – auf dem Handy, wo
+das Panel als Bottom-Sheet unten klebt, ist das der Normalfall.
+
+**Was beim ersten Öffnen noch gar nicht da ist, erklärt die Tour auch nicht.**
+Varianten-Chips, Geister-Linien und Höhenprofil existieren vor der ersten Route
+schlicht nicht; eine Tour müsste auf leere Stellen zeigen und über etwas reden,
+das man nicht sieht. Stattdessen gibt es dafür je einen **einzelnen Hinweis**,
+der genau einmal erscheint, wenn die Sache zum ersten Mal auftaucht – derselbe
+Spotlight, aber ein Schritt statt fünf, ohne Schrittpunkte und mit „Alles klar"
+statt „Weiter". Läuft gerade die Tour, stellen sich die Hinweise hinten an.
+
+Weitere Regeln, die sich aus dem Zweck ergeben:
+
+- **Geteilte Links bleiben verschont.** Wer über `#r=…` kommt, will die Route
+  sehen und keinen Kurs; dort startet weder Tour noch Hinweis.
+- **Ein Abbruch ist ein Abbruch.** „Überspringen" oder Esc schaltet auch die
+  Einzelhinweise ab – wer abwinkt, will nicht zehn Minuten später wieder
+  angetippt werden.
+- **Bedienbar ohne Maus**: Pfeiltasten blättern, Esc bricht ab, der Fokus bleibt
+  in der Sprechblase gefangen, solange sie offen ist.
+- **Zurückholbar**: In den Einstellungen liegt „🧭 Kurze Einführung noch einmal
+  zeigen".
+- Gemerkt wird das in `localStorage` unter `roundtrip-tour`, zusammen mit einer
+  Versionsnummer – so lässt sich später ein einzelner neuer Hinweis nachreichen,
+  ohne allen wieder die ganze Tour vorzusetzen.
+
 ## Verwendete Dienste
 
 Alles über frei nutzbare, öffentliche Dienste – kein eigenes Backend, keine
@@ -366,6 +409,7 @@ gegliedert (per Kommentar-Überschriften `================= … ================
   Standort & Suche   Geolocation-Button, Nominatim-Adresssuche
   Einstellungen      laden/speichern (localStorage)
   Erscheinungsbild   Theme anwenden, Leaflet-Ebenen nachziehen
+  Einstiegstour      Spotlight-Overlay, Schritte, Einzelhinweise
   DOM-Verdrahtung    Event-Handler, Panel ein-/ausklappen, Deep-Link laden
 ```
 
@@ -378,6 +422,8 @@ ausschließlich lokal im Browser (`localStorage`):
   Rückweg-Umweg, Höhenmeter-Wunsch, Theme.
 - `roundtrip-routes` – gespeicherte Routen (Koordinaten, Wegpunkte,
   Höhenprofil, Metadaten).
+- `roundtrip-tour` – ob die Einstiegstour gelaufen (oder weggeklickt) ist und
+  welche Einzelhinweise schon gezeigt wurden.
 - `roundtrip-track` – die laufende oder zuletzt beendete Aufzeichnung des
   Hinwegs (Punkte mit Zeitstempel, Länge, Verkehrsmittel). Verlässt das Gerät
   nie; das 🗑️ in der Rückweg-Box löscht sie.
@@ -413,6 +459,7 @@ Last für die freien Dienste. `LIVE=1` schaltet auf die echten Dienste um.
 | `return` | Aufzeichnung samt Filtern, Wiederherstellung nach dem Neuladen, Maß für gemeinsame Strecke, Rückweg-Suche und zweiter Vorschlag |
 | `elevation` | Verhalten, wenn der Höhen-Dienst Fehler liefert, hängt oder verspätet antwortet |
 | `climb` | Höhenmeter-Wunsch: Raster-Interpolation, Schätzung gegen eine schiefe Ebene, Strafe im Score, eine einzige Scan-Anfrage samt Cache, Knopf und Popover, Wirkung auf die Suchrichtung |
+| `tour` | Einstiegstour: Start nur beim ersten Besuch, Rahmen sitzt über dem erklärten Element (auch auf 360 px), Sprechblase bleibt im Bild und verdeckt es nicht, Einzelhinweise erst bei Bedarf, Abbruch, Wiederholung, geteilter Link |
 | `layout` | Beschriftung der Buttons über zwölf Bildschirmbreiten von 320–1280 px, mit und ohne Aufzeichnung |
 
 CI (`.github/workflows/ci.yml`) läuft bei jedem Push und Pull Request und
@@ -429,7 +476,7 @@ tests/
   harness.js              Browser-/Server-Setup, Netz-Abfang, Leaflet-Cache
   stub.js                 Synthetische Antworten für OSRM/Open-Meteo/Nominatim
   core.test.js, ui.test.js, return.test.js, elevation.test.js,
-  climb.test.js, layout.test.js
+  climb.test.js, tour.test.js, layout.test.js
   README.md               Ausführliche Test-Dokumentation
 .github/workflows/ci.yml Testlauf bei Push/PR
 ```

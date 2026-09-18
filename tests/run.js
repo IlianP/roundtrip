@@ -13,6 +13,7 @@ const SUITES = {
   return: "./return.test.js",
   elevation: "./elevation.test.js",
   climb: "./climb.test.js",
+  tour: "./tour.test.js",
   layout: "./layout.test.js"
 };
 

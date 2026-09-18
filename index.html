@@ -236,6 +236,38 @@
     #shareSheet{width:100vw; max-width:100vw; border-radius:16px 16px 0 0; padding-bottom:max(18px, env(safe-area-inset-bottom));}
   }
 
+  /* ---------- Einstiegstour ----------
+     Das Loch im Dunkel entsteht ohne zweite Ebene: ein Kasten mit einem
+     Schlagschatten, der größer ist als der Bildschirm. Der Kasten selbst
+     bleibt durchsichtig, alles ringsum liegt im Schatten. */
+  #tour{position:fixed; inset:0; z-index:2500; display:none;}
+  #tour.show{display:block;}
+  #tourHole{
+    position:fixed; border-radius:11px; border:2px solid var(--accent);
+    box-shadow:0 0 0 9999px var(--overlay); pointer-events:none;
+    transition:top .26s ease, left .26s ease, width .26s ease, height .26s ease;
+  }
+  #tourBubble{
+    position:fixed; width:290px; max-width:calc(100vw - 24px); background:var(--bg);
+    border:2px solid var(--accent); border-radius:var(--radius); padding:14px;
+    box-shadow:var(--card-shadow); display:flex; flex-direction:column; gap:8px;
+    transition:top .26s ease, left .26s ease;
+  }
+  #tourBubble h3{font-size:15px;}
+  #tourBubble p{font-size:13px; line-height:1.5; color:var(--muted);}
+  #tourBubble .btn{padding:7px 12px; font-size:14px; flex:0 0 auto;}
+  .tour-nav{display:flex; align-items:center; gap:8px; margin-top:2px;}
+  #tourDots{display:flex; gap:5px; margin-right:auto;}
+  #tourDots i{width:6px; height:6px; border-radius:50%; background:var(--border); display:block;}
+  #tourDots i.on{background:var(--accent);}
+  #tourSkip{
+    /* 56 px lassen die Zoom-Bedienung rechts oben frei, statt sie zu verdecken */
+    position:fixed; top:max(12px, env(safe-area-inset-top)); right:56px; border:none; cursor:pointer;
+    background:var(--toast-bg); color:var(--toast-fg); border-radius:999px; padding:6px 14px;
+    font-size:13px; font-family:inherit;
+  }
+  @media (prefers-reduced-motion:reduce){ #tourHole, #tourBubble{transition:none;} }
+
   /* ---------- Toast ---------- */
   #toast{
     position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
@@ -333,7 +365,7 @@
       <div id="searchResults"></div>
     </div>
 
-    <div class="row">
+    <div class="row" id="tripRow">
       <div style="flex:1">
         <label class="small" for="distInput">Distanz (km)</label>
         <input type="number" id="distInput" value="5" min="0.5" max="300" step="0.5">
@@ -438,6 +470,10 @@
         <option value="dark">Dunkel</option>
       </select>
     </div>
+    <div class="field">
+      <label class="small">Einführung</label>
+      <button class="btn" id="tourAgainBtn" type="button">🧭 Kurze Einführung noch einmal zeigen</button>
+    </div>
     <div class="btn-row">
       <button class="btn" id="modalCancel">Abbrechen</button>
       <button class="btn primary" id="modalSave">Speichern</button>
@@ -471,6 +507,20 @@
 </div>
 
 <div id="toast"></div>
+
+<div id="tour" aria-hidden="true">
+  <div id="tourHole"></div>
+  <div id="tourBubble" role="dialog" aria-modal="true" aria-labelledby="tourTitle">
+    <h3 id="tourTitle"></h3>
+    <p id="tourText"></p>
+    <div class="tour-nav">
+      <span id="tourDots" aria-hidden="true"></span>
+      <button class="btn" id="tourBack" type="button">Zurück</button>
+      <button class="btn primary" id="tourNext" type="button">Weiter</button>
+    </div>
+  </div>
+  <button id="tourSkip" type="button">Überspringen</button>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
@@ -1453,6 +1503,7 @@ function searchMoreVariants(ctx, fromSeed) {
     queueElev(cand, token);       // Höhenmeter für den Chip, im Hintergrund
     drawGhosts();
     renderVariantChips();
+    if (variants.length === 2) tourMark("variants");   // jetzt gibt es etwas zu erklären
     if (!busy && lastRoute) showRouteStatus(lastRoute);   // „Variante 1/2“ nachziehen
     return variants.length;
   }).catch(() => {}).finally(() => {
@@ -1697,6 +1748,7 @@ function renderElevation(raw) {
 
   elevData = { elev, raw, total, lo, hi, x0, x1, y0, y1 };
   $("elevTip").textContent = "";
+  tourMark("elev");                                   // beim ersten Mal kurz erklären
 }
 
 /* Fahren mit Maus oder Finger über das Profil: Fadenkreuz, Werte und ein
@@ -2856,6 +2908,161 @@ $("modalSave").onclick = () => {
         `Rückweg-Umweg ${settings.returnDetour} %`);
 };
 
+/* ================= Einstiegstour =================
+   Beim ersten Öffnen: fünf kurze Schritte auf das, was da ist – abgedunkelt bis
+   auf den erklärten Bereich. Varianten und Höhenprofil kommen darin bewusst
+   nicht vor: Beim ersten Öffnen gibt es sie noch gar nicht, eine Tour müsste auf
+   leere Stellen zeigen. Die erklärt je ein einzelner Hinweis dann, wenn sie zum
+   ersten Mal auftauchen.
+   Wer über einen geteilten Link kommt, will die Route sehen und keinen Kurs –
+   dort startet nichts von allein; die Einstellungen holen es nach. */
+const TOUR_KEY = "roundtrip-tour";
+const TOUR_VERSION = 1;
+
+const TOUR_STEPS = [
+  { el: "searchWrap", title: "Wo geht es los?",
+    text: "Adresse eingeben, auf die Karte tippen oder den 📍-Knopf für den eigenen Standort. " +
+          "Start und Ziel sind derselbe Punkt – es wird ja eine Runde." },
+  { el: "tripRow", title: "Wie weit, womit?",
+    text: "Wunschdistanz und Verkehrsmittel. Die App sucht eine echte Straßenroute, die möglichst " +
+          "nah an die Distanz herankommt und dabei rund verläuft, statt zweimal durch dieselbe Straße." },
+  { el: "genBtn", title: "Route erzeugen",
+    text: "Der erste Vorschlag steht sofort. Weitere sucht die App danach im Hintergrund – " +
+          "🎲 Würfeln fragt jederzeit nach neuen Richtungen." },
+  { el: "climbBtn", title: "Flach oder bergig?",
+    text: "Hier wünschst du dir mehr oder weniger Höhenmeter. Was eingestellt ist, steht danach " +
+          "im Knopf – und gilt ab der nächsten Route." },
+  { el: "trackBox", title: "Rückweg später",
+    text: "Den Hinweg unterwegs aufzeichnen – und Stunden später findet die App einen Rückweg, " +
+          "der ihn meidet. Die Seite darf dazwischen geschlossen werden." }
+];
+
+/* Einzelne Hinweise für das, was es erst später zu sehen gibt */
+const TOUR_MARKS = {
+  variants: { el: "variants", title: "Mehrere Vorschläge",
+    text: "Jeder Chip ist eine Route in eine andere Richtung; die gestrichelten Linien auf der Karte " +
+          "gehören dazu. Antippen schaltet um." },
+  elev: { el: "elevBox", title: "Das Höhenprofil",
+    text: "Mit Maus oder Finger darüberfahren: Die Karte zeigt mit, wo auf der Strecke du gerade bist." }
+};
+
+function loadTourState() {
+  try {
+    const t = JSON.parse(localStorage.getItem(TOUR_KEY));
+    if (t && t.v === TOUR_VERSION) { t.seen = t.seen || {}; return t; }
+  } catch { /* privater Modus */ }
+  return { v: TOUR_VERSION, done: false, skipped: false, seen: {} };
+}
+function saveTourState() {
+  try { localStorage.setItem(TOUR_KEY, JSON.stringify(tourState)); } catch { /* privater Modus */ }
+}
+
+let tourState = loadTourState();
+let tourSteps = null, tourIdx = 0, tourSingle = false, tourQueue = [];
+let tourQuiet = false;         // geteilter Link: keine Tour, auch keine Einzelhinweise
+
+function tourRun(steps, single) {
+  if (!steps || !steps.length || tourSteps) return;
+  closeClimbPop();
+  togglePanel(false);                       // eingeklappt wäre nichts zu zeigen
+  tourSteps = steps; tourIdx = 0; tourSingle = !!single;
+  tourRender();
+}
+
+function tourRender() {
+  const step = tourSteps && tourSteps[tourIdx];
+  const el = step && $(step.el);
+  if (el && el.scrollIntoView) el.scrollIntoView({ block: "nearest" });
+  const r = el && el.getBoundingClientRect();
+  if (!r || !r.width || !r.height) {        // Element nicht sichtbar → Schritt überspringen
+    if (tourIdx >= tourSteps.length - 1) return tourEnd();
+    tourIdx++; return tourRender();
+  }
+
+  const pad = 6, hole = $("tourHole"), bubble = $("tourBubble");
+  hole.style.left = (r.left - pad) + "px";
+  hole.style.top = (r.top - pad) + "px";
+  hole.style.width = (r.width + pad * 2) + "px";
+  hole.style.height = (r.height + pad * 2) + "px";
+
+  $("tourTitle").textContent = step.title;
+  $("tourText").textContent = step.text;
+  $("tourDots").innerHTML = tourSingle ? "" :
+    tourSteps.map((_, i) => `<i class="${i === tourIdx ? "on" : ""}"></i>`).join("");
+  $("tourBack").style.display = tourIdx > 0 ? "" : "none";
+  $("tourNext").textContent = tourIdx === tourSteps.length - 1
+    ? (tourSingle ? "Alles klar" : "Fertig") : "Weiter";
+  $("tourSkip").style.display = tourSingle ? "none" : "";
+
+  const tour = $("tour");
+  tour.classList.add("show");
+  tour.setAttribute("aria-hidden", "false");
+
+  // Erst anzeigen, dann messen – sonst hat die Sprechblase keine Höhe.
+  const b = bubble.getBoundingClientRect();
+  const below = r.bottom + pad + 10;
+  bubble.style.top = (below + b.height <= window.innerHeight - 10
+    ? below : Math.max(10, r.top - pad - 10 - b.height)) + "px";
+  bubble.style.left = Math.min(Math.max(12, r.left + r.width / 2 - b.width / 2),
+                               window.innerWidth - b.width - 12) + "px";
+  $("tourNext").focus();
+}
+
+function tourNext() {
+  if (!tourSteps) return;
+  if (tourIdx >= tourSteps.length - 1) return tourEnd();
+  tourIdx++; tourRender();
+}
+function tourBack() { if (tourSteps && tourIdx > 0) { tourIdx--; tourRender(); } }
+
+function tourEnd(skipped) {
+  if (!tourSteps) return;
+  const wasTour = !tourSingle;
+  tourSteps = null;
+  $("tour").classList.remove("show");
+  $("tour").setAttribute("aria-hidden", "true");
+  if (wasTour) {
+    tourState.done = true;
+    if (skipped) tourState.skipped = true;
+    saveTourState();
+  }
+  // Was während der Tour aufgelaufen ist, kommt jetzt dran
+  const next = tourQueue.shift();
+  if (next) setTimeout(() => tourMark(next), 400);
+}
+
+/* Ein einzelner Hinweis – höchstens einmal, und nie mitten in der Tour. */
+function tourMark(id) {
+  const m = TOUR_MARKS[id];
+  if (!m || !tourState || tourQuiet || tourState.skipped || tourState.seen[id]) return;
+  if (tourSteps) { if (!tourQueue.includes(id)) tourQueue.push(id); return; }
+  tourState.seen[id] = true;
+  saveTourState();
+  tourRun([m], true);
+}
+
+$("tourNext").onclick = () => tourNext();
+$("tourBack").onclick = () => tourBack();
+$("tourSkip").onclick = () => tourEnd(true);
+$("tourAgainBtn").onclick = () => {
+  modalBg.style.display = "none";
+  tourState.skipped = false;
+  saveTourState();
+  tourRun(TOUR_STEPS);
+};
+$("tour").addEventListener("keydown", e => {
+  if (e.key === "Escape") { e.stopPropagation(); return tourEnd(true); }
+  if (e.key === "ArrowRight") return tourNext();
+  if (e.key === "ArrowLeft") return tourBack();
+  if (e.key !== "Tab") return;
+  // Fokusfalle: Der Rest der Seite ist abgedunkelt und soll auch nicht erreichbar sein
+  const keys = [...$("tour").querySelectorAll("button")].filter(b => b.offsetParent !== null);
+  const i = keys.indexOf(document.activeElement);
+  e.preventDefault();
+  keys[(i + (e.shiftKey ? -1 : 1) + keys.length) % keys.length].focus();
+});
+window.addEventListener("resize", () => { if (tourSteps) tourRender(); });
+
 /* Beim Laden: Thema setzen, geteilten Link öffnen, Live-Standort verfolgen
    (ohne Fehler-Toast). Der erste Fix belegt den Startpunkt vor – aber nur,
    wenn nicht ohnehin eine geteilte Route geladen wurde. */
@@ -2863,8 +3070,12 @@ applyTheme();
 renderClimbBtn();
 const openedShared = loadFromHash();
 if (openedShared) liveFirstFix = false;
+tourQuiet = !!openedShared;
 restoreTrack(!openedShared);      // Verkehrsmittel der Aufzeichnung nur ohne geteilte Route
 startLiveTracking();
+// Erster Besuch: kurz zeigen, wo was ist – nach einem Moment, damit Karte und
+// Panel stehen und die Tour nicht auf einen wandernden Knopf zeigt.
+if (!tourQuiet && !tourState.done) setTimeout(() => tourRun(TOUR_STEPS), 700);
 </script>
 </body>
 </html>
