@@ -147,7 +147,7 @@ module.exports = async function run(env) {
   /* --- Anzeigeformate --- */
   const fmt = await page.evaluate(() => ({
     m: fmtDist(742), km: fmtDist(5123), min: fmtDur(1500), h: fmtDur(5400),
-    foot: modeMeta("foot").label, bike: modeMeta("bike").label, unknown: modeMeta("xxx").label
+    foot: modeName("foot"), bike: modeName("bike"), unknown: modeName("xxx")
   }));
   t.ok("Kurze Strecken in Metern", fmt.m === "742 m", fmt.m);
   t.ok("Lange Strecken in Kilometern", fmt.km === "5,12 km", fmt.km);

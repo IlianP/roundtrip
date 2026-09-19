@@ -254,6 +254,17 @@
     transition:top .26s ease, left .26s ease;
   }
   #tourBubble h3{font-size:15px;}
+  /* Sprachwahl über der Überschrift: zwei kleine Pillen, nur im ersten Schritt
+     der ersten Tour. Mehr Platz darf eine Nebenfrage nicht bekommen. */
+  #tourLang{display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+            font-size:12px; color:var(--muted); margin-bottom:2px;}
+  #tourLang[hidden]{display:none;}
+  #tourLangOpts{display:flex; gap:5px;}
+  .tourLangOpt{
+    border:1px solid var(--border); background:transparent; color:var(--fg);
+    border-radius:999px; padding:3px 9px; font-size:12px; font-family:inherit; cursor:pointer;
+  }
+  .tourLangOpt.on{border-color:var(--accent); color:var(--accent); font-weight:600;}
   #tourBubble p{font-size:13px; line-height:1.5; color:var(--muted);}
   #tourBubble .btn{padding:7px 12px; font-size:14px; flex:0 0 auto;}
   .tour-nav{display:flex; align-items:center; gap:8px; margin-top:2px;}
@@ -349,60 +360,59 @@
 <div class="panel" id="panel">
   <div class="grabber" id="grabber"></div>
   <h1>
-    <span class="title" id="panelToggle" title="Panel ein-/ausklappen">
+    <span class="title" id="panelToggle" data-i18n-title="head.collapse">
       🔄 Roundtrip <span class="chev" id="panelChev" aria-hidden="true">▼</span>
     </span>
     <span>
-      <button class="gear" id="themeBtn" title="Hell / Dunkel umschalten">🌙</button>
-      <button class="gear" id="routesBtn" title="Gespeicherte Routen">📁</button>
-      <button class="gear" id="gearBtn" title="Einstellungen">⚙️</button>
+      <button class="gear" id="themeBtn">🌙</button>
+      <button class="gear" id="routesBtn" data-i18n-title="head.routes" data-i18n-aria="head.routes">📁</button>
+      <button class="gear" id="gearBtn" data-i18n-title="head.settings" data-i18n-aria="head.settings">⚙️</button>
     </span>
   </h1>
 
   <div id="panelBody">
     <div id="searchWrap">
-      <input type="text" id="searchInput" placeholder="Startpunkt suchen … (oder Karte antippen)" autocomplete="off">
+      <input type="text" id="searchInput" data-i18n-placeholder="search.placeholder" autocomplete="off">
       <div id="searchResults"></div>
     </div>
 
     <div class="row" id="tripRow">
       <div style="flex:1">
-        <label class="small" for="distInput">Distanz (km)</label>
+        <label class="small" for="distInput" data-i18n="form.dist"></label>
         <input type="number" id="distInput" value="5" min="0.5" max="300" step="0.5">
       </div>
       <div style="flex:1.6">
-        <label class="small">Verkehrsmittel</label>
+        <label class="small" data-i18n="form.mode"></label>
         <div class="seg">
-          <button id="modeFoot" class="active" title="Zu Fuß" aria-label="Zu Fuß">🚶<span class="lbl"> Fuß</span></button>
-          <button id="modeBike" title="Fahrrad" aria-label="Fahrrad">🚴<span class="lbl"> Rad</span></button>
-          <button id="modeCar" title="Auto" aria-label="Auto">🚗<span class="lbl"> Auto</span></button>
+          <button id="modeFoot" class="active" data-i18n-title="mode.foot.title" data-i18n-aria="mode.foot.title">🚶<span class="lbl" data-i18n="mode.foot.lbl"></span></button>
+          <button id="modeBike" data-i18n-title="mode.bike.title" data-i18n-aria="mode.bike.title">🚴<span class="lbl" data-i18n="mode.bike.lbl"></span></button>
+          <button id="modeCar" data-i18n-title="mode.car.title" data-i18n-aria="mode.car.title">🚗<span class="lbl" data-i18n="mode.car.lbl"></span></button>
         </div>
       </div>
     </div>
 
     <div class="btn-row">
-      <button class="btn iconic" id="locateBtn" title="Eigenen Standort verwenden" aria-label="Eigenen Standort verwenden">📍<span class="lbl"> Standort</span></button>
-      <button class="btn iconic" id="climbBtn" title="Höhenmeter-Wunsch" aria-label="Höhenmeter-Wunsch"
-              aria-haspopup="dialog" aria-expanded="false">🏔️<span class="lbl"> Höhe</span></button>
-      <button class="btn primary" id="genBtn">Route erzeugen</button>
+      <button class="btn iconic" id="locateBtn" data-i18n-title="btn.locate.title" data-i18n-aria="btn.locate.title">📍<span class="lbl" data-i18n="btn.locate.lbl"></span></button>
+      <button class="btn iconic" id="climbBtn" aria-haspopup="dialog" aria-expanded="false">🏔️<span class="lbl"></span></button>
+      <button class="btn primary" id="genBtn" data-i18n="btn.generate"></button>
     </div>
     <div class="btn-row">
-      <button class="btn iconic" id="variantBtn" disabled title="Neue Vorschläge in anderen Richtungen" aria-label="Neu würfeln">🎲<span class="lbl"> Würfeln</span></button>
-      <button class="btn iconic" id="saveBtn" disabled title="Route speichern" aria-label="Route speichern">💾<span class="lbl"> Speichern</span></button>
-      <button class="btn iconic" id="shareBtn" disabled title="Teilen und navigieren" aria-label="Teilen und navigieren">📤<span class="lbl"> Teilen</span></button>
+      <button class="btn iconic" id="variantBtn" disabled data-i18n-title="btn.variant.title" data-i18n-aria="btn.variant.aria">🎲<span class="lbl" data-i18n="btn.variant.lbl"></span></button>
+      <button class="btn iconic" id="saveBtn" disabled data-i18n-title="btn.save.title" data-i18n-aria="btn.save.title">💾<span class="lbl" data-i18n="btn.save.lbl"></span></button>
+      <button class="btn iconic" id="shareBtn" disabled data-i18n-title="btn.share.title" data-i18n-aria="btn.share.title">📤<span class="lbl" data-i18n="btn.share.lbl"></span></button>
     </div>
 
     <div id="trackBox">
       <div id="trackHead">
-        <span id="trackTitle">↩️ Rückweg später</span>
+        <span id="trackTitle"></span>
         <span id="trackStats"></span>
       </div>
       <div class="btn-row">
-        <button class="btn iconic" id="recBtn" title="Hinweg aufzeichnen" aria-label="Hinweg aufzeichnen">⏺<span class="lbl"> Aufzeichnen</span></button>
-        <button class="btn iconic" id="trackDelBtn" title="Aufzeichnung verwerfen" aria-label="Aufzeichnung verwerfen">🗑️<span class="lbl"> Verwerfen</span></button>
+        <button class="btn iconic" id="recBtn">⏺<span class="lbl"></span></button>
+        <button class="btn iconic" id="trackDelBtn" data-i18n-title="track.discard.title" data-i18n-aria="track.discard.title">🗑️<span class="lbl" data-i18n="track.discard.lbl"></span></button>
       </div>
       <div class="btn-row" id="backRow">
-        <button class="btn primary" id="backBtn">↩️ Rückweg finden</button>
+        <button class="btn primary" id="backBtn"></button>
       </div>
       <span class="hint" id="trackHint"></span>
     </div>
@@ -411,84 +421,84 @@
 
     <div id="elevBox">
       <div id="elevHead"><span id="elevSummary"></span><span id="elevRange"></span></div>
-      <svg id="elevChart" role="img" aria-label="Höhenprofil der Route"></svg>
+      <svg id="elevChart" role="img" data-i18n-aria="elev.aria"></svg>
       <div id="elevTip"></div>
     </div>
   </div>
 
-  <div id="status">Startpunkt wählen: 📍-Button oder Karte antippen.</div>
+  <div id="status" data-i18n-html="status.pickStart"></div>
 </div>
 
-<div id="climbPop" role="dialog" aria-label="Höhenmeter-Wunsch">
-  <h3>Höhenmeter</h3>
+<div id="climbPop" role="dialog" data-i18n-aria="btn.climb.title">
+  <h3 data-i18n="climb.pop.title"></h3>
   <button class="climbOpt" type="button" data-wish="flat">
     <span class="ico" aria-hidden="true">🏞️</span>
-    <span><b>Flach</b><small>Sucht die flachste Richtung der Umgebung.</small></span>
+    <span><b data-i18n="climb.flat.lbl"></b><small data-i18n="climb.opt.flat.desc"></small></span>
   </button>
   <button class="climbOpt" type="button" data-wish="any">
     <span class="ico" aria-hidden="true">🏔️</span>
-    <span><b>Egal</b><small>Wie bisher: Distanz und Rundheit entscheiden.</small></span>
+    <span><b data-i18n="climb.opt.any.lbl"></b><small data-i18n="climb.opt.any.desc"></small></span>
   </button>
   <button class="climbOpt" type="button" data-wish="hill">
     <span class="ico" aria-hidden="true">⛰️</span>
-    <span><b>Bergig</b><small>Sucht bewusst die Anstiege der Umgebung.</small></span>
+    <span><b data-i18n="climb.hill.lbl"></b><small data-i18n="climb.opt.hill.desc"></small></span>
   </button>
-  <span class="hint">Gilt ab der nächsten Route und fürs 🎲 Würfeln. Wo das Gelände keine Wahl
-  hergibt, sagt die Statuszeile das.</span>
+  <span class="hint" data-i18n="climb.pop.hint"></span>
 </div>
 
 <div id="modalBg">
   <div id="modal">
-    <h2>Einstellungen</h2>
+    <h2 data-i18n="settings.title"></h2>
     <div class="field">
-      <label class="small" for="tolInput">Toleranz (± % der Zieldistanz)</label>
+      <label class="small" for="tolInput" data-i18n="settings.tol.label"></label>
       <input type="number" id="tolInput" min="1" max="50" step="1" value="5">
-      <span class="hint">Die Route gilt als Treffer, wenn die tatsächliche Länge maximal so viel abweicht.
-      Hinweis: Um Doppelstrecken („Zipfel") zu vermeiden, darf die Route bei der Auswahl bis ca. 10 % abweichen —
-      Routen mit weniger Doppelstrecke werden bevorzugt. Die Zwischenpunkte wählt die App automatisch
-      passend zur Gegend (städtisch/ländlich).</span>
+      <span class="hint" data-i18n="settings.tol.hint"></span>
     </div>
     <div class="field">
       <label class="small" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-        <input type="checkbox" id="mwInput" checked> Autobahn vermeiden (Auto-Modus)
+        <input type="checkbox" id="mwInput" checked> <span data-i18n="settings.mw.label"></span>
       </label>
-      <span class="hint">Bevorzugt Routen ohne Autobahn-/Schnellstraßenanteile – genau dort entstehen die längsten Stichfahrten ohne Abbiegemöglichkeit.</span>
+      <span class="hint" data-i18n="settings.mw.hint"></span>
     </div>
     <div class="field">
-      <label class="small" for="detourInput">Rückweg: erlaubter Umweg (%)</label>
+      <label class="small" for="detourInput" data-i18n="settings.detour.label"></label>
       <input type="number" id="detourInput" min="0" max="300" step="10" value="60">
-      <span class="hint">Wie viel länger als der kürzeste Weg zurück der Rückweg höchstens werden darf, um
-      der aufgezeichneten Strecke auszuweichen. Mehr Umweg = weniger gemeinsame Strecke. Auf kurzer
-      Strecke sind immer mindestens 400 m Umweg erlaubt, und jeder weitere Vorschlag darf großzügiger
-      ausfallen – sonst reicht es nicht einmal um den Block.</span>
+      <span class="hint" data-i18n="settings.detour.hint"></span>
+    </div>
+    <!-- Sprache steht bei „Erscheinungsbild“: beides betrifft die Darstellung,
+         und beides wirkt sofort. Ein eigener Knopf in der Kopfzeile wäre der
+         vierte dort – für eine Einstellung, die man einmal trifft. -->
+    <div class="field">
+      <label class="small" for="langInput" data-i18n="settings.lang.label"></label>
+      <select id="langInput"></select>
     </div>
     <div class="field">
-      <label class="small" for="themeInput">Erscheinungsbild</label>
+      <label class="small" for="themeInput" data-i18n="settings.theme.label"></label>
       <select id="themeInput">
-        <option value="auto">Automatisch (Systemeinstellung)</option>
-        <option value="light">Hell</option>
-        <option value="dark">Dunkel</option>
+        <option value="auto" data-i18n="settings.theme.auto"></option>
+        <option value="light" data-i18n="settings.theme.light"></option>
+        <option value="dark" data-i18n="settings.theme.dark"></option>
       </select>
     </div>
     <div class="field">
-      <label class="small">Einführung</label>
-      <button class="btn" id="tourAgainBtn" type="button">🧭 Kurze Einführung noch einmal zeigen</button>
+      <label class="small" data-i18n="settings.tour.label"></label>
+      <button class="btn" id="tourAgainBtn" type="button" data-i18n="settings.tour.btn"></button>
     </div>
     <div class="btn-row">
-      <button class="btn" id="modalCancel">Abbrechen</button>
-      <button class="btn primary" id="modalSave">Speichern</button>
+      <button class="btn" id="modalCancel" data-i18n="settings.cancel"></button>
+      <button class="btn primary" id="modalSave" data-i18n="settings.save"></button>
     </div>
   </div>
 </div>
 
 <div id="routesBg">
   <div id="routesModal">
-    <h2>📁 Gespeicherte Routen</h2>
+    <h2 data-i18n="routes.title"></h2>
     <div id="routesList"></div>
     <div class="btn-row">
-      <button class="btn" id="exportBtn" title="Alle Routen als JSON-Datei sichern">📤 Export</button>
-      <button class="btn" id="importBtn" title="Routen aus einer JSON-Datei einlesen">📥 Import</button>
-      <button class="btn" id="routesClose">Schließen</button>
+      <button class="btn" id="exportBtn" data-i18n-title="routes.export.title" data-i18n="routes.export"></button>
+      <button class="btn" id="importBtn" data-i18n-title="routes.import.title" data-i18n="routes.import"></button>
+      <button class="btn" id="routesClose" data-i18n="routes.close"></button>
     </div>
     <input type="file" id="importFile" accept="application/json,.json" style="display:none">
   </div>
@@ -496,13 +506,13 @@
 
 <div id="shareBg">
   <div id="shareSheet">
-    <h2>📤 Route teilen &amp; navigieren</h2>
-    <button class="btn" id="shNavi">🧭 In Google Maps öffnen</button>
-    <button class="btn" id="shShare">📱 Route senden (GPX)</button>
-    <button class="btn" id="shLink">🔗 Link kopieren</button>
-    <button class="btn" id="shGpx">⬇️ GPX herunterladen</button>
-    <span class="hint" id="shHint">Google Maps kann nur wenige Zwischenziele – die Form wird dort angenähert. GPX und Link geben den Verlauf exakt wieder.</span>
-    <button class="btn" id="shClose">Schließen</button>
+    <h2 data-i18n-html="share.title"></h2>
+    <button class="btn" id="shNavi" data-i18n="share.navi"></button>
+    <button class="btn" id="shShare" data-i18n="share.send"></button>
+    <button class="btn" id="shLink" data-i18n="share.link"></button>
+    <button class="btn" id="shGpx" data-i18n="share.gpx"></button>
+    <span class="hint" id="shHint" data-i18n="share.hint"></span>
+    <button class="btn" id="shClose" data-i18n="share.close"></button>
   </div>
 </div>
 
@@ -511,15 +521,22 @@
 <div id="tour" aria-hidden="true">
   <div id="tourHole"></div>
   <div id="tourBubble" role="dialog" aria-modal="true" aria-labelledby="tourTitle">
+    <!-- Sprachwahl nur im ersten Schritt der ersten Tour: Wer hier landet, sieht
+         die App zum ersten Mal – und die vom Browser geratene Sprache ist nicht
+         immer die gewünschte. Später steht sie in den Einstellungen. -->
+    <div id="tourLang" hidden>
+      <span id="tourLangLabel"></span>
+      <span id="tourLangOpts"></span>
+    </div>
     <h3 id="tourTitle"></h3>
     <p id="tourText"></p>
     <div class="tour-nav">
       <span id="tourDots" aria-hidden="true"></span>
-      <button class="btn" id="tourBack" type="button">Zurück</button>
-      <button class="btn primary" id="tourNext" type="button">Weiter</button>
+      <button class="btn" id="tourBack" type="button" data-i18n="tour.back"></button>
+      <button class="btn primary" id="tourNext" type="button"></button>
     </div>
   </div>
-  <button id="tourSkip" type="button">Überspringen</button>
+  <button id="tourSkip" type="button" data-i18n="tour.skip"></button>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -537,9 +554,9 @@ const OSRM = {
 /* maxMs = plausible Höchstgeschwindigkeit (m/s); schnellere Sprünge zwischen
    zwei Fixes sind GPS-Ausreißer und fliegen aus der Aufzeichnung. */
 const MODES = {
-  foot: { emoji: "🚶", label: "zu Fuß",  gmaps: "walking",   warnKm: 100,      maxMs: 9 },
-  bike: { emoji: "🚴", label: "Fahrrad", gmaps: "bicycling", warnKm: 300,      maxMs: 25 },
-  car:  { emoji: "🚗", label: "Auto",    gmaps: "driving",   warnKm: Infinity, maxMs: 70 }
+  foot: { emoji: "🚶", gmaps: "walking",   warnKm: 100,      maxMs: 9 },
+  bike: { emoji: "🚴", gmaps: "bicycling", warnKm: 300,      maxMs: 25 },
+  car:  { emoji: "🚗", gmaps: "driving",   warnKm: Infinity, maxMs: 70 }
 };
 const modeMeta = m => MODES[m] || MODES.foot;
 const MAX_ITER = 8;           // max. Anpassungs-Iterationen pro Versuch
@@ -630,13 +647,577 @@ let liveMarker = null, liveCircle = null;
 let liveWatchId = null, livePollTimer = null, liveStaleTimer = null, liveRenderTimer = null;
 let liveLastRender = 0, liveFirstFix = true, liveBtnEl = null;
 
+/* ================= Sprachen (i18n) =================
+   Alle Texte der Oberfläche stehen in STR, je Sprache ein flaches Objekt mit
+   denselben Schlüsseln. Eine weitere Sprache hinzuzufügen heißt genau zwei
+   Dinge: einen Eintrag in LANGS (Name, Zahlen-/Datumsformat, Sprachcode für
+   Nominatim) und eine Kopie des Schlüsselsatzes in STR. Kein Baustein der App
+   nennt eine Sprache beim Namen — was fehlt, fällt auf BASE_LANG zurück, und
+   die Testsuite `i18n` meldet jede Lücke.
+
+   Welche Sprache gilt:
+     1. die ausdrücklich gewählte (settings.lang) — sie schlägt alles,
+     2. sonst die erste vom Browser gewünschte, die es hier gibt,
+     3. sonst DEFAULT_LANG.
+
+   Platzhalter heißen {name}. Zählbares geht über tn(): der Schlüssel bekommt
+   die Endung .one oder .other, damit eine Sprache ihre eigene Mehrzahl behält. */
+const LANGS = {
+  de: { label: "Deutsch", locale: "de-DE", geo: "de" },
+  en: { label: "English", locale: "en-GB", geo: "en" }
+};
+const BASE_LANG = "de";       // Quelltext-Sprache: vollständig, Rückfall für jeden fehlenden Schlüssel
+const DEFAULT_LANG = "en";    // wünscht der Browser eine Sprache, die es hier nicht gibt
+
+const STR = {
+de: {
+  "app.title": "Roundtrip – Rundkurs-Planer",
+
+  "head.collapse": "Panel ein-/ausklappen",
+  "head.theme.toDark": "Auf dunkles Thema umschalten",
+  "head.theme.toLight": "Auf helles Thema umschalten",
+  "head.routes": "Gespeicherte Routen",
+  "head.settings": "Einstellungen",
+
+  "search.placeholder": "Startpunkt suchen … (oder Karte antippen)",
+
+  "form.dist": "Distanz (km)",
+  "form.mode": "Verkehrsmittel",
+  "mode.foot.lbl": " Fuß",
+  "mode.foot.title": "Zu Fuß",
+  "mode.foot.name": "zu Fuß",
+  "mode.bike.lbl": " Rad",
+  "mode.bike.title": "Fahrrad",
+  "mode.bike.name": "Fahrrad",
+  "mode.car.lbl": " Auto",
+  "mode.car.title": "Auto",
+  "mode.car.name": "Auto",
+
+  "btn.locate.lbl": " Standort",
+  "btn.locate.title": "Eigenen Standort verwenden",
+  "btn.climb.title": "Höhenmeter-Wunsch",
+  "btn.generate": "Route erzeugen",
+  "btn.generate.busy": " Berechne …",
+  "btn.variant.lbl": " Würfeln",
+  "btn.variant.title": "Neue Vorschläge in anderen Richtungen",
+  "btn.variant.aria": "Neu würfeln",
+  "btn.save.lbl": " Speichern",
+  "btn.save.title": "Route speichern",
+  "btn.share.lbl": " Teilen",
+  "btn.share.title": "Teilen und navigieren",
+
+  "track.later": "↩️ Rückweg später",
+  "track.recording": "Aufzeichnung läuft",
+  "track.recorded": "↩️ Hinweg aufgezeichnet",
+  "track.rec.lbl.start": " Aufzeichnen",
+  "track.rec.lbl.resume": " Weiter",
+  "track.rec.lbl.stop": " Stopp",
+  "track.rec.title.start": "Hinweg aufzeichnen",
+  "track.rec.title.resume": "Aufzeichnung fortsetzen",
+  "track.rec.title.stop": "Aufzeichnung beenden",
+  "track.discard.lbl": " Verwerfen",
+  "track.discard.title": "Aufzeichnung verwerfen",
+  "track.back.find": "↩️ Rückweg finden",
+  "track.back.other": "🎲 Anderer Rückweg",
+  "track.back.busy": " Suche …",
+  "track.hint.rec": "Läuft weiter, solange die Seite offen ist – und übersteht einen Neustart.",
+  "track.hint.has": "Der Rückweg startet dort, wo du gerade stehst, und meidet die aufgezeichneten <b>{dist}</b>.",
+  "track.hint.none": "Zeichnet den Hinweg per GPS auf. Später führt ein Knopfdruck auf einem anderen Weg zurück.",
+  "track.points.one": "{n} Punkt",
+  "track.points.other": "{n} Punkte",
+  "track.tooltip": "Start der Aufzeichnung – hierhin führt der Rückweg",
+
+  "elev.aria": "Höhenprofil der Route",
+  "elev.loading": "Höhenprofil wird geladen …",
+  "elev.failed": "Höhenprofil nicht verfügbar",
+  "elev.retry": "erneut versuchen",
+  "elev.summary": "↑ <b>{asc} hm</b> · ↓ <b>{desc} hm</b>",
+  "elev.range": "{min}–{max} m ü. NN",
+  "unit.climb": "↑ {n} hm",
+
+  "climb.pop.title": "Höhenmeter",
+  "climb.any.lbl": "Höhe",
+  "climb.any.name": "egal",
+  "climb.flat.lbl": "Flach",
+  "climb.flat.name": "flach",
+  "climb.hill.lbl": "Bergig",
+  "climb.hill.name": "bergig",
+  "climb.opt.flat.desc": "Sucht die flachste Richtung der Umgebung.",
+  "climb.opt.any.lbl": "Egal",
+  "climb.opt.any.desc": "Wie bisher: Distanz und Rundheit entscheiden.",
+  "climb.opt.hill.desc": "Sucht bewusst die Anstiege der Umgebung.",
+  "climb.pop.hint": "Gilt ab der nächsten Route und fürs 🎲 Würfeln. Wo das Gelände keine Wahl hergibt, sagt die Statuszeile das.",
+  "climb.btn.title": "Höhenmeter-Wunsch: {name}",
+  "climb.toast.set": "Höhenmeter: {name}. Gilt ab der nächsten Route – 🎲 Würfeln sucht neu.",
+  "climb.toast.off": "Höhenmeter: egal. Distanz und Rundheit entscheiden wieder allein.",
+  "climb.note.failed": " · {name} gewünscht (Gelände nicht abrufbar)",
+  "climb.note.flat": " · {name} gewünscht – hier gibt das Gelände kaum Unterschiede her",
+  "climb.note.on": " · <b>{name} gewünscht</b>",
+
+  "settings.title": "Einstellungen",
+  "settings.tol.label": "Toleranz (± % der Zieldistanz)",
+  "settings.tol.hint": "Die Route gilt als Treffer, wenn die tatsächliche Länge maximal so viel abweicht. Hinweis: Um Doppelstrecken („Zipfel“) zu vermeiden, darf die Route bei der Auswahl bis ca. 10 % abweichen — Routen mit weniger Doppelstrecke werden bevorzugt. Die Zwischenpunkte wählt die App automatisch passend zur Gegend (städtisch/ländlich).",
+  "settings.mw.label": "Autobahn vermeiden (Auto-Modus)",
+  "settings.mw.hint": "Bevorzugt Routen ohne Autobahn-/Schnellstraßenanteile – genau dort entstehen die längsten Stichfahrten ohne Abbiegemöglichkeit.",
+  "settings.detour.label": "Rückweg: erlaubter Umweg (%)",
+  "settings.detour.hint": "Wie viel länger als der kürzeste Weg zurück der Rückweg höchstens werden darf, um der aufgezeichneten Strecke auszuweichen. Mehr Umweg = weniger gemeinsame Strecke. Auf kurzer Strecke sind immer mindestens 400 m Umweg erlaubt, und jeder weitere Vorschlag darf großzügiger ausfallen – sonst reicht es nicht einmal um den Block.",
+  "settings.lang.label": "Sprache / Language",
+  "settings.lang.auto": "Automatisch ({name})",
+  "settings.theme.label": "Erscheinungsbild",
+  "settings.theme.auto": "Automatisch (Systemeinstellung)",
+  "settings.theme.light": "Hell",
+  "settings.theme.dark": "Dunkel",
+  "settings.tour.label": "Einführung",
+  "settings.tour.btn": "🧭 Kurze Einführung noch einmal zeigen",
+  "settings.cancel": "Abbrechen",
+  "settings.save": "Speichern",
+  "settings.toast": "Gespeichert: ±{tol} % Toleranz, Autobahn {mw}, Rückweg-Umweg {detour} %",
+  "settings.mw.avoid": "vermeiden",
+  "settings.mw.allow": "erlaubt",
+
+  "routes.title": "📁 Gespeicherte Routen",
+  "routes.empty": "Noch keine Routen gespeichert. Erzeuge eine Route und tippe 💾 Speichern.",
+  "routes.export": "📤 Export",
+  "routes.export.title": "Alle Routen als JSON-Datei sichern",
+  "routes.import": "📥 Import",
+  "routes.import.title": "Routen aus einer JSON-Datei einlesen",
+  "routes.close": "Schließen",
+  "routes.load": "Laden",
+  "routes.rename.lbl": " Name",
+  "routes.rename.title": "Umbenennen",
+  "routes.gpx.lbl": " GPX",
+  "routes.gpx.title": "Als GPX herunterladen",
+  "routes.del.title": "Löschen",
+  "routes.meta.return": " · ↩️ Rückweg",
+
+  "share.title": "📤 Route teilen &amp; navigieren",
+  "share.navi": "🧭 In Google Maps öffnen",
+  "share.send": "📱 Route senden (GPX)",
+  "share.link": "🔗 Link kopieren",
+  "share.gpx": "⬇️ GPX herunterladen",
+  "share.hint": "Google Maps kann nur wenige Zwischenziele – die Form wird dort angenähert. GPX und Link geben den Verlauf exakt wieder.",
+  "share.close": "Schließen",
+
+  "status.pickStart": "Startpunkt wählen: 📍-Button oder Karte antippen.",
+  "status.startSet": "Startpunkt gesetzt. Distanz wählen und <b>Route erzeugen</b>.",
+  "status.approx": "ca. {dur}",
+  "status.target": " (Ziel {km} km, Abw. {dev} %)",
+  "status.dupl": " · doppelt: ",
+  "status.repaired": " · {n} Zipfel repariert",
+  "status.trimmed": " · Schleife vorzeitig geschlossen",
+  "status.variantOf": " · Variante {i}/{n}",
+  "status.tolMissed": " – Toleranz nicht erreicht, beste gefundene Route",
+  "status.shared": "🔗 Geteilte Route geladen · {dist}",
+  "status.savedLoaded": "📁 „{name}“ geladen · {dist} · {dur}",
+  "status.tooClose": "Nur noch {m} m Luftlinie bis zum Startpunkt – dafür lohnt kein Rückweg.",
+  "status.return.head": "↩️ Rückweg · ",
+  "status.return.shared": " · gemeinsam mit dem Hinweg: ",
+  "status.return.detour": " · {p} % Umweg",
+  "status.return.same": " – <span class=\"warn\">einen anderen Weg gibt das Wegenetz hier nicht her</span>",
+  "status.return.partly": " – mehr Ausweichmöglichkeiten gab das Wegenetz nicht her",
+
+  "progress.terrain": "Gelände wird geprüft …",
+  "progress.seeds": "Suche Rundkurse … (Richtung {s}, Runde {i})",
+  "progress.polish": "Variante {n} wird optimiert …",
+  "progress.return": "Suche Rückweg … (Versuch {n})",
+  "progress.locating": "Ermittle Standort …",
+
+  "variant.chip": "Variante {n} · {dist}",
+  "variant.more": "weitere Vorschläge …",
+  "variant.title": "Abweichung {dev} % · doppelt {ov} %",
+  "variant.best": " · von allen Vorschlägen am ehesten {name}",
+
+  "marker.start": "Start/Ziel",
+  "marker.startPopup": "Start & Ziel",
+  "marker.returnStart": "Hier startet der Rückweg",
+
+  "live.setStart": "Start auf aktuellen Standort setzen",
+  "live.denied": "Standortfreigabe verweigert",
+  "live.insecure": "Standort braucht HTTPS oder localhost",
+  "map.attribution": "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a>-Mitwirkende | Routing: <a href=\"https://routing.openstreetmap.de\">FOSSGIS/OSRM</a>",
+
+  "err.routing": "Routing fehlgeschlagen ({err})",
+  "err.noRoute": "Keine Route gefunden – anderer Startpunkt oder kürzere Distanz?",
+  "err.noReturn": "Kein Rückweg gefunden – hier liefert der Router nichts.",
+  "err.format": "unbekanntes Format",
+
+  "toast.needStart": "Bitte zuerst einen Startpunkt setzen (📍 oder Karte antippen).",
+  "toast.badDist": "Bitte eine gültige Distanz angeben.",
+  "toast.linkCopied": "Link kopiert – wer ihn öffnet, sieht genau diese Route.",
+  "toast.saveFailed": "Speichern fehlgeschlagen – Speicher voll? Bitte alte Routen löschen.",
+  "toast.saved": "Gespeichert: „{name}“ – umbenennen unter 📁",
+  "toast.noRoutes": "Es sind noch keine Routen gespeichert.",
+  "toast.exported.one": "{n} Route exportiert.",
+  "toast.exported.other": "{n} Routen exportiert.",
+  "toast.imported.one": "{n} Route importiert{skipped}.",
+  "toast.imported.other": "{n} Routen importiert{skipped}.",
+  "toast.imported.skipped": ", {n} übersprungen",
+  "toast.importedNone": "Nichts importiert – die Routen sind schon vorhanden.",
+  "toast.importFailed": "Import fehlgeschlagen: {err}",
+  "toast.readFailed": "Datei konnte nicht gelesen werden.",
+  "toast.noGeoDevice": "Dieses Gerät liefert keinen Standort.",
+  "toast.noGeoApi": "Geolocation wird nicht unterstützt.",
+  "toast.needHttps": "Aufzeichnung braucht HTTPS oder localhost.",
+  "toast.recStarted": "Aufzeichnung läuft – der Hinweg wird mitgeschrieben.",
+  "toast.noTrack": "Es ist noch keine Strecke aufgezeichnet.",
+  "toast.locFailed": "Standort nicht verfügbar ({err}). Tipp: Karte antippen oder Adresse suchen. Hinweis: Geolocation braucht HTTPS oder localhost.",
+  "toast.lang": "Sprache: {name}",
+
+  "confirm.longDist": "{km} km {mode} – wirklich?",
+  "confirm.discardTrack": "Aufgezeichnete Strecke verwerfen?",
+  "confirm.delRoute": "„{name}“ löschen?",
+  "prompt.rename": "Neuer Name:",
+  "prompt.copyLink": "Link kopieren:",
+
+  "route.title": "Roundtrip {dist} ({mode})",
+  "route.imported": "Importierte Route",
+  "file.export": "roundtrip-routen",
+
+  "tour.back": "Zurück",
+  "tour.next": "Weiter",
+  "tour.done": "Fertig",
+  "tour.ok": "Alles klar",
+  "tour.skip": "Überspringen",
+  "tour.lang": "🌐 Sprache",
+  "tour.s1.title": "Wo geht es los?",
+  "tour.s1.text": "Adresse eingeben, auf die Karte tippen oder den 📍-Knopf für den eigenen Standort. Start und Ziel sind derselbe Punkt – es wird ja eine Runde.",
+  "tour.s2.title": "Wie weit, womit?",
+  "tour.s2.text": "Wunschdistanz und Verkehrsmittel. Die App sucht eine echte Straßenroute, die möglichst nah an die Distanz herankommt und dabei rund verläuft, statt zweimal durch dieselbe Straße.",
+  "tour.s3.title": "Route erzeugen",
+  "tour.s3.text": "Der erste Vorschlag steht sofort. Weitere sucht die App danach im Hintergrund – 🎲 Würfeln fragt jederzeit nach neuen Richtungen.",
+  "tour.s4.title": "Flach oder bergig?",
+  "tour.s4.text": "Hier wünschst du dir mehr oder weniger Höhenmeter. Was eingestellt ist, steht danach im Knopf – und gilt ab der nächsten Route.",
+  "tour.s5.title": "Rückweg später",
+  "tour.s5.text": "Den Hinweg unterwegs aufzeichnen – und Stunden später findet die App einen Rückweg, der ihn meidet. Die Seite darf dazwischen geschlossen werden.",
+  "tour.m.variants.title": "Mehrere Vorschläge",
+  "tour.m.variants.text": "Jeder Chip ist eine Route in eine andere Richtung; die gestrichelten Linien auf der Karte gehören dazu. Antippen schaltet um.",
+  "tour.m.elev.title": "Das Höhenprofil",
+  "tour.m.elev.text": "Mit Maus oder Finger darüberfahren: Die Karte zeigt mit, wo auf der Strecke du gerade bist."
+},
+en: {
+  "app.title": "Roundtrip – Loop Route Planner",
+
+  "head.collapse": "Collapse / expand panel",
+  "head.theme.toDark": "Switch to the dark theme",
+  "head.theme.toLight": "Switch to the light theme",
+  "head.routes": "Saved routes",
+  "head.settings": "Settings",
+
+  "search.placeholder": "Search a start point … (or tap the map)",
+
+  "form.dist": "Distance (km)",
+  "form.mode": "Mode of travel",
+  "mode.foot.lbl": " Walk",
+  "mode.foot.title": "On foot",
+  "mode.foot.name": "on foot",
+  "mode.bike.lbl": " Bike",
+  "mode.bike.title": "Bicycle",
+  "mode.bike.name": "by bike",
+  "mode.car.lbl": " Car",
+  "mode.car.title": "Car",
+  "mode.car.name": "by car",
+
+  "btn.locate.lbl": " Locate",
+  "btn.locate.title": "Use my own location",
+  "btn.climb.title": "Elevation preference",
+  "btn.generate": "Create route",
+  "btn.generate.busy": " Calculating …",
+  "btn.variant.lbl": " Shuffle",
+  "btn.variant.title": "New suggestions in other directions",
+  "btn.variant.aria": "Shuffle again",
+  "btn.save.lbl": " Save",
+  "btn.save.title": "Save route",
+  "btn.share.lbl": " Share",
+  "btn.share.title": "Share and navigate",
+
+  "track.later": "↩️ Way back later",
+  "track.recording": "Recording",
+  "track.recorded": "↩️ Outbound leg recorded",
+  "track.rec.lbl.start": " Record",
+  "track.rec.lbl.resume": " Resume",
+  "track.rec.lbl.stop": " Stop",
+  "track.rec.title.start": "Record the outbound leg",
+  "track.rec.title.resume": "Resume recording",
+  "track.rec.title.stop": "Stop recording",
+  "track.discard.lbl": " Discard",
+  "track.discard.title": "Discard the recording",
+  "track.back.find": "↩️ Find a way back",
+  "track.back.other": "🎲 Another way back",
+  "track.back.busy": " Searching …",
+  "track.hint.rec": "Keeps running while the page is open – and survives a reload.",
+  "track.hint.has": "The way back starts where you are standing now and avoids the recorded <b>{dist}</b>.",
+  "track.hint.none": "Records the outbound leg via GPS. Later one tap leads you back on a different way.",
+  "track.points.one": "{n} point",
+  "track.points.other": "{n} points",
+  "track.tooltip": "Start of the recording – this is where the way back leads",
+
+  "elev.aria": "Elevation profile of the route",
+  "elev.loading": "Loading the elevation profile …",
+  "elev.failed": "Elevation profile unavailable",
+  "elev.retry": "try again",
+  "elev.summary": "↑ <b>{asc} m</b> · ↓ <b>{desc} m</b>",
+  "elev.range": "{min}–{max} m above sea level",
+  "unit.climb": "↑ {n} m",
+
+  "climb.pop.title": "Elevation",
+  "climb.any.lbl": "Climb",
+  "climb.any.name": "any",
+  "climb.flat.lbl": "Flat",
+  "climb.flat.name": "flat",
+  "climb.hill.lbl": "Hilly",
+  "climb.hill.name": "hilly",
+  "climb.opt.flat.desc": "Looks for the flattest direction around you.",
+  "climb.opt.any.lbl": "Any",
+  "climb.opt.any.desc": "As before: distance and roundness decide.",
+  "climb.opt.hill.desc": "Deliberately looks for the climbs around you.",
+  "climb.pop.hint": "Applies from the next route on, and to 🎲 Shuffle. Where the terrain offers no choice, the status line says so.",
+  "climb.btn.title": "Elevation preference: {name}",
+  "climb.toast.set": "Elevation: {name}. Applies from the next route on – 🎲 Shuffle searches again.",
+  "climb.toast.off": "Elevation: any. Distance and roundness decide on their own again.",
+  "climb.note.failed": " · {name} requested (terrain unavailable)",
+  "climb.note.flat": " · {name} requested – the terrain here barely differs",
+  "climb.note.on": " · <b>{name} requested</b>",
+
+  "settings.title": "Settings",
+  "settings.tol.label": "Tolerance (± % of the target distance)",
+  "settings.tol.hint": "A route counts as a hit when its actual length is off by no more than this. Note: to avoid doubling back (“spurs”), a route may be off by up to about 10 % while candidates are compared — routes with less doubling back win. The app picks the intermediate points automatically, to suit the area (urban/rural).",
+  "settings.mw.label": "Avoid motorways (car mode)",
+  "settings.mw.hint": "Prefers routes without motorway or expressway sections – that is exactly where the longest stretches without a turn-off appear.",
+  "settings.detour.label": "Way back: detour allowed (%)",
+  "settings.detour.hint": "How much longer than the shortest way back the return route may become in order to avoid the recorded track. More detour = less shared distance. On a short leg at least 400 m of detour is always allowed, and every further suggestion may be more generous – otherwise it would not even get around the block.",
+  "settings.lang.label": "Language / Sprache",
+  "settings.lang.auto": "Automatic ({name})",
+  "settings.theme.label": "Appearance",
+  "settings.theme.auto": "Automatic (system setting)",
+  "settings.theme.light": "Light",
+  "settings.theme.dark": "Dark",
+  "settings.tour.label": "Introduction",
+  "settings.tour.btn": "🧭 Show the short introduction again",
+  "settings.cancel": "Cancel",
+  "settings.save": "Save",
+  "settings.toast": "Saved: ±{tol} % tolerance, motorways {mw}, return detour {detour} %",
+  "settings.mw.avoid": "avoided",
+  "settings.mw.allow": "allowed",
+
+  "routes.title": "📁 Saved routes",
+  "routes.empty": "No routes saved yet. Create a route and tap 💾 Save.",
+  "routes.export": "📤 Export",
+  "routes.export.title": "Back up all routes as a JSON file",
+  "routes.import": "📥 Import",
+  "routes.import.title": "Read routes from a JSON file",
+  "routes.close": "Close",
+  "routes.load": "Load",
+  "routes.rename.lbl": " Name",
+  "routes.rename.title": "Rename",
+  "routes.gpx.lbl": " GPX",
+  "routes.gpx.title": "Download as GPX",
+  "routes.del.title": "Delete",
+  "routes.meta.return": " · ↩️ way back",
+
+  "share.title": "📤 Share route &amp; navigate",
+  "share.navi": "🧭 Open in Google Maps",
+  "share.send": "📱 Send route (GPX)",
+  "share.link": "🔗 Copy link",
+  "share.gpx": "⬇️ Download GPX",
+  "share.hint": "Google Maps only takes a few waypoints – the shape is approximated there. GPX and the link reproduce the course exactly.",
+  "share.close": "Close",
+
+  "status.pickStart": "Pick a start point: the 📍 button, or tap the map.",
+  "status.startSet": "Start point set. Choose a distance and <b>Create route</b>.",
+  "status.approx": "approx. {dur}",
+  "status.target": " (target {km} km, off by {dev} %)",
+  "status.dupl": " · doubled: ",
+  "status.repaired": " · {n} spur(s) repaired",
+  "status.trimmed": " · loop closed early",
+  "status.variantOf": " · option {i}/{n}",
+  "status.tolMissed": " – tolerance not met, best route found",
+  "status.shared": "🔗 Shared route loaded · {dist}",
+  "status.savedLoaded": "📁 “{name}” loaded · {dist} · {dur}",
+  "status.tooClose": "Only {m} m as the crow flies to the start point – a way back is not worth it.",
+  "status.return.head": "↩️ Way back · ",
+  "status.return.shared": " · shared with the outbound leg: ",
+  "status.return.detour": " · {p} % detour",
+  "status.return.same": " – <span class=\"warn\">the path network here offers no other way</span>",
+  "status.return.partly": " – the path network offered no more ways around",
+
+  "progress.terrain": "Checking the terrain …",
+  "progress.seeds": "Searching loops … (direction {s}, round {i})",
+  "progress.polish": "Optimising option {n} …",
+  "progress.return": "Looking for a way back … (attempt {n})",
+  "progress.locating": "Getting your location …",
+
+  "variant.chip": "Option {n} · {dist}",
+  "variant.more": "more suggestions …",
+  "variant.title": "Off by {dev} % · doubled {ov} %",
+  "variant.best": " · of all suggestions the closest to {name}",
+
+  "marker.start": "Start/finish",
+  "marker.startPopup": "Start & finish",
+  "marker.returnStart": "The way back starts here",
+
+  "live.setStart": "Set the start to my current location",
+  "live.denied": "Location permission denied",
+  "live.insecure": "Location needs HTTPS or localhost",
+  "map.attribution": "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors | Routing: <a href=\"https://routing.openstreetmap.de\">FOSSGIS/OSRM</a>",
+
+  "err.routing": "Routing failed ({err})",
+  "err.noRoute": "No route found – another start point, or a shorter distance?",
+  "err.noReturn": "No way back found – the router gives nothing here.",
+  "err.format": "unknown format",
+
+  "toast.needStart": "Please set a start point first (📍 or tap the map).",
+  "toast.badDist": "Please enter a valid distance.",
+  "toast.linkCopied": "Link copied – whoever opens it sees exactly this route.",
+  "toast.saveFailed": "Saving failed – storage full? Please delete old routes.",
+  "toast.saved": "Saved: “{name}” – rename it under 📁",
+  "toast.noRoutes": "No routes saved yet.",
+  "toast.exported.one": "{n} route exported.",
+  "toast.exported.other": "{n} routes exported.",
+  "toast.imported.one": "{n} route imported{skipped}.",
+  "toast.imported.other": "{n} routes imported{skipped}.",
+  "toast.imported.skipped": ", {n} skipped",
+  "toast.importedNone": "Nothing imported – those routes are already here.",
+  "toast.importFailed": "Import failed: {err}",
+  "toast.readFailed": "The file could not be read.",
+  "toast.noGeoDevice": "This device provides no location.",
+  "toast.noGeoApi": "Geolocation is not supported.",
+  "toast.needHttps": "Recording needs HTTPS or localhost.",
+  "toast.recStarted": "Recording – the outbound leg is being written down.",
+  "toast.noTrack": "No track recorded yet.",
+  "toast.locFailed": "Location unavailable ({err}). Tip: tap the map or search an address. Note: geolocation needs HTTPS or localhost.",
+  "toast.lang": "Language: {name}",
+
+  "confirm.longDist": "{km} km {mode} – really?",
+  "confirm.discardTrack": "Discard the recorded track?",
+  "confirm.delRoute": "Delete “{name}”?",
+  "prompt.rename": "New name:",
+  "prompt.copyLink": "Copy link:",
+
+  "route.title": "Roundtrip {dist} ({mode})",
+  "route.imported": "Imported route",
+  "file.export": "roundtrip-routes",
+
+  "tour.back": "Back",
+  "tour.next": "Next",
+  "tour.done": "Done",
+  "tour.ok": "Got it",
+  "tour.skip": "Skip",
+  "tour.lang": "🌐 Language",
+  "tour.s1.title": "Where do we start?",
+  "tour.s1.text": "Enter an address, tap the map, or use the 📍 button for your own location. Start and finish are the same point – it is a loop, after all.",
+  "tour.s2.title": "How far, and how?",
+  "tour.s2.text": "Your target distance and mode of travel. The app looks for a real road route that comes as close as possible to that distance while staying round, instead of going through the same street twice.",
+  "tour.s3.title": "Create route",
+  "tour.s3.text": "The first suggestion is there right away. The app keeps looking for more in the background – 🎲 Shuffle asks for new directions at any time.",
+  "tour.s4.title": "Flat or hilly?",
+  "tour.s4.text": "Here you ask for more or less climbing. What is set shows up in the button afterwards – and applies from the next route on.",
+  "tour.s5.title": "Way back later",
+  "tour.s5.text": "Record the outbound leg on the way – and hours later the app finds a way back that avoids it. The page may be closed in between.",
+  "tour.m.variants.title": "Several suggestions",
+  "tour.m.variants.text": "Every chip is a route in a different direction; the dashed lines on the map belong to them. Tap to switch.",
+  "tour.m.elev.title": "The elevation profile",
+  "tour.m.elev.text": "Move the mouse or a finger across it: the map shows where on the route you are."
+}
+};
+
+/* Die erste vom Browser gewünschte Sprache, die es hier gibt. „de-AT“ zählt
+   als „de“; ein ganz unbekannter Wunsch landet bei DEFAULT_LANG. */
+function detectLang(prefs) {
+  const list = prefs || (navigator.languages && navigator.languages.length
+    ? navigator.languages : [navigator.language || ""]);
+  for (const p of list) {
+    const tag = String(p || "").toLowerCase();
+    if (LANGS[tag]) return tag;                 // Platz für regionale Wörterbücher (z. B. "pt-br")
+    const base = tag.split("-")[0];
+    if (LANGS[base]) return base;
+  }
+  return DEFAULT_LANG;
+}
+
+let lang = LANGS[settings.lang] ? settings.lang : detectLang();
+
+const langLocale = () => (LANGS[lang] || LANGS[BASE_LANG]).locale;
+const langMeta = () => LANGS[lang] || LANGS[BASE_LANG];
+
+/* Ein Text. Fehlt der Schlüssel in der gewählten Sprache, greift BASE_LANG –
+   und fehlt er auch dort, steht der Schlüssel selbst da: sichtbar, aber nicht
+   kaputt. */
+function t(key, vars) {
+  let s = (STR[lang] && STR[lang][key]);
+  if (s === undefined) s = (STR[BASE_LANG] && STR[BASE_LANG][key]);
+  if (s === undefined) return key;
+  if (!vars) return s;
+  return s.replace(/\{(\w+)\}/g, (m, k) => (vars[k] === undefined ? m : vars[k]));
+}
+
+/* Zählbares: der Schlüssel bekommt .one oder .other. Eine Sprache mit mehr
+   Formen bringt hier ihre eigene Regel unter, ohne die Aufrufe anzufassen. */
+function tn(key, n, vars) {
+  return t(`${key}.${n === 1 ? "one" : "other"}`, { n: nfmt(n), ...(vars || {}) });
+}
+
+/* Zahlen in der Schreibweise der Sprache (1,5 km gegen 1.5 km) */
+function nfmt(n, digits) {
+  return Number(n).toLocaleString(langLocale(),
+    digits === undefined ? undefined : { maximumFractionDigits: digits });
+}
+
+const modeName = m => t(`mode.${MODES[m] ? m : "foot"}.name`);
+
+/* Die Oberfläche neu beschriften. Statische Texte hängen als data-i18n am
+   Element, alles Errechnete zieht seine Render-Funktion nach. Das läuft beim
+   Start genauso wie nach einem Sprachwechsel – es gibt keinen zweiten Weg,
+   auf dem Texte in die Seite kommen. */
+function applyLang() {
+  document.documentElement.lang = lang;
+  document.title = t("app.title");
+  for (const el of document.querySelectorAll("[data-i18n]")) el.textContent = t(el.dataset.i18n);
+  for (const el of document.querySelectorAll("[data-i18n-html]")) el.innerHTML = t(el.dataset.i18nHtml);
+  for (const el of document.querySelectorAll("[data-i18n-title]")) el.title = t(el.dataset.i18nTitle);
+  for (const el of document.querySelectorAll("[data-i18n-aria]"))
+    el.setAttribute("aria-label", t(el.dataset.i18nAria));
+  for (const el of document.querySelectorAll("[data-i18n-placeholder]"))
+    el.placeholder = t(el.dataset.i18nPlaceholder);
+  langSelectOptions();
+  applyMapLang();
+  applyTheme();                 // Titel des Themen-Knopfes
+  renderClimbBtn();
+  renderTrackUI();
+  renderVariantChips();
+  redrawStatus();
+  if (liveBtnEl && !liveBtnEl.classList.contains("denied")) liveBtnEl.title = t("live.setStart");
+  if (liveBtnEl) liveBtnEl.setAttribute("aria-label", t("live.setStart"));
+  if (routesBgOpen()) renderRoutes();
+  if (elevData) renderElevation(elevData.raw);
+  if (tourSteps) tourRender();
+}
+
+/* Der Sprachwechsel selbst: „auto“ heißt, weiter dem Browser zu folgen. */
+function setLang(next, opts = {}) {
+  const chosen = next === "auto" ? null : (LANGS[next] ? next : null);
+  settings.lang = chosen;
+  lang = chosen || detectLang();
+  if (opts.save !== false) saveSettings();
+  applyLang();
+  if (opts.toast) toast(t("toast.lang", { name: langMeta().label }));
+}
+
 /* ================= Karte ================= */
 const map = L.map("map", { zoomControl: false }).setView([51.16, 10.45], 6);
 L.control.zoom({ position: "topright" }).addTo(map);
-L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  maxZoom: 19,
-  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>-Mitwirkende | Routing: <a href="https://routing.openstreetmap.de">FOSSGIS/OSRM</a>'
+const tiles = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  maxZoom: 19, attribution: t("map.attribution")
 }).addTo(map);
+
+/* Leaflet hält die Quellenangabe als fertigen Text – beim Sprachwechsel wird
+   die alte ausgetragen und die neue eingetragen. */
+let mapAttribution = t("map.attribution");
+function applyMapLang() {
+  const next = t("map.attribution");
+  if (next === mapAttribution || !map.attributionControl) return;
+  map.attributionControl.removeAttribution(mapAttribution).addAttribution(next);
+  mapAttribution = next;
+}
 L.control.scale({ imperial: false, maxWidth: 160, position: "bottomright" }).addTo(map);
 
 /* Kleiner Karten-Button (rechts oben, unter dem Zoom): Start auf aktuellen Standort */
@@ -645,8 +1226,8 @@ const LiveControl = L.Control.extend({
   onAdd() {
     const btn = L.DomUtil.create("button", "live-btn");
     btn.type = "button";
-    btn.title = "Start auf aktuellen Standort setzen";
-    btn.setAttribute("aria-label", "Start auf aktuellen Standort setzen");
+    btn.title = t("live.setStart");
+    btn.setAttribute("aria-label", t("live.setStart"));
     btn.innerHTML =
       '<span class="icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" ' +
       'stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">' +
@@ -920,7 +1501,7 @@ async function osrmRoute(points, profile) {
                coords: r.geometry.coordinates.map(c => [c[1], c[0]]) };
     } catch (e) { lastErr = e.message; }
   }
-  throw new Error("Routing fehlgeschlagen (" + lastErr + ")");
+  throw new Error(t("err.routing", { err: lastErr }));
 }
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -1100,7 +1681,7 @@ async function searchSeed(ctx, s) {
   for (let i = 0; i < MAX_ITER; i++) {
     if (ctx.requests >= REQUEST_BUDGET || ctx.cancelled()) break;
     const nWp = ctx.plan ? ctx.plan[s % ctx.plan.length] : (profile === "car" ? 5 : 4);
-    ctx.onProgress(`Suche Rundkurse … (Richtung ${s + 1}, Runde ${i + 1})`);
+    ctx.onProgress(t("progress.seeds", { s: s + 1, i: i + 1 }));
     const { pts: wps, ks } = circleWaypoints(startLL, radius, seed.bearing, nWp, seed.dir, skip);
     if (wps.length < 2) break;
     let route;
@@ -1181,7 +1762,7 @@ async function makeRoundTrip(startLL, targetM, profile, onProgress, cancelled) {
   // danach sortieren. Die Abdeckung über 360° bleibt – nur die Reihenfolge
   // ändert sich, und die erste gefundene Route ist die angezeigte.
   if (wantsClimb()) {
-    onProgress("Gelände wird geprüft …");
+    onProgress(t("progress.terrain"));
     try {
       ctx.terrain = await scanTerrain(startLL, targetM / (2 * Math.PI));
       const sign = ctx.wish === "flat" ? 1 : -1;
@@ -1286,10 +1867,10 @@ function setStart(latlng, pan, label) {
   cancelSearch();          // laufende Suche gehört zum alten Startpunkt
   start = latlng;
   if (startMarker) startMarker.remove();
-  startMarker = L.marker(latlng, { title: label || "Start/Ziel" }).addTo(map)
-    .bindPopup(label || "Start & Ziel").openPopup();
+  startMarker = L.marker(latlng, { title: label || t("marker.start") }).addTo(map)
+    .bindPopup(label || t("marker.startPopup")).openPopup();
   if (pan) map.setView(latlng, Math.max(map.getZoom(), 14));
-  setStatus("Startpunkt gesetzt. Distanz wählen und <b>Route erzeugen</b>.");
+  setStatusLive(() => t("status.startSet"));
 }
 
 function clearGhosts() { ghostLines.forEach(l => l.remove()); ghostLines = []; }
@@ -1329,7 +1910,7 @@ function drawGhosts() {
                                         dashArray: "6 7", interactive: false }).addTo(map);
     // Breite, fast durchsichtige Linie darüber: bequemes Ziel für den Finger
     const hit = L.polyline(v.coords, { color: ghost, weight: 14, opacity: .12 }).addTo(map);
-    hit.bindTooltip(`Variante ${i + 1} · ${fmtDist(v.distance)}`, { sticky: true });
+    hit.bindTooltip(t("variant.chip", { n: i + 1, dist: fmtDist(v.distance) }), { sticky: true });
     hit.on("click", () => {
       suppressMapClick = true;
       setTimeout(() => { suppressMapClick = false; }, 0);
@@ -1349,16 +1930,16 @@ function renderVariantChips() {
     b.className = "vchip" + (i === activeVariant ? " active" : "");
     b.type = "button";
     b.innerHTML = '<span class="dot"></span>';
-    b.appendChild(document.createTextNode(`Variante ${i + 1} · ${fmtDist(v.distance)}`));
+    b.appendChild(document.createTextNode(t("variant.chip", { n: i + 1, dist: fmtDist(v.distance) })));
     const asc = climbOf(v);
     if (asc != null) {
       const hm = document.createElement("span");
       hm.className = "hm";
-      hm.textContent = ` · ↑ ${asc} hm` + (i === pick ? ` ${CLIMB_UI[routeCtx.wish].icon}` : "");
+      hm.textContent = " · " + t("unit.climb", { n: asc }) + (i === pick ? ` ${climbUi(routeCtx.wish).icon}` : "");
       b.appendChild(hm);
     }
-    b.title = `Abweichung ${((v.dev || 0) * 100).toFixed(1)} % · doppelt ${((v.overlap || 0) * 100).toFixed(1)} %` +
-              (i === pick ? ` · von allen Vorschlägen am ehesten ${CLIMB_UI[routeCtx.wish].name}` : "");
+    b.title = t("variant.title", { dev: nfmt((v.dev || 0) * 100, 1), ov: nfmt((v.overlap || 0) * 100, 1) }) +
+              (i === pick ? t("variant.best", { name: climbUi(routeCtx.wish).name }) : "");
     b.onclick = () => activateVariant(i);
     box.appendChild(b);
   });
@@ -1366,7 +1947,7 @@ function renderVariantChips() {
     const p = document.createElement("span");
     p.className = "vchip pending";
     p.innerHTML = '<span class="spinner spinner-inline"></span>';
-    p.appendChild(document.createTextNode("weitere Vorschläge …"));
+    p.appendChild(document.createTextNode(t("variant.more")));
     box.appendChild(p);
   }
   box.classList.add("show");
@@ -1396,7 +1977,7 @@ async function activateVariant(i) {
   showRouteStatus(variants[i]);
   if (variants[i].polished || !start) return;
   busy = true;
-  setStatus(`<span class="spinner spinner-inline"></span> Variante ${i + 1} wird optimiert …`);
+  setStatus(`<span class="spinner spinner-inline"></span> ${t("progress.polish", { n: i + 1 })}`);
   try {
     const better = await polish(variants[i], start, routeCtx.targetM, routeCtx.profile, routeCtx.tol);
     variants[i] = better;
@@ -1406,22 +1987,27 @@ async function activateVariant(i) {
 }
 
 function showRouteStatus(route) {
+  setStatusLive(() => routeStatusHtml(route));
+}
+
+/* Eigene Funktion, damit dieselbe Zeile nach einem Sprachwechsel noch einmal
+   entstehen kann – ohne die Route neu zu berechnen. */
+function routeStatusHtml(route) {
   const tol = routeCtx.tol ?? settings.tolerance / 100;
-  const devPct = ((route.dev || 0) * 100).toLocaleString("de-DE", { maximumFractionDigits: 1 });
-  const ovPct = ((route.overlap || 0) * 100).toLocaleString("de-DE", { maximumFractionDigits: 1 });
+  const devPct = nfmt((route.dev || 0) * 100, 1);
+  const ovPct = nfmt((route.overlap || 0) * 100, 1);
   const cls = (route.dev || 0) <= tol ? "ok" : "warn";
   const ovCls = (route.overlap || 0) <= GOOD_OVERLAP ? "ok" : "warn";
-  const target = routeCtx.km ? ` (Ziel ${routeCtx.km.toLocaleString("de-DE")} km, Abw. ${devPct} %)` : "";
-  const trimNote = (route.repaired ? ` · ${route.repaired} Zipfel repariert` : "") +
-                   (route.trimmed ? " · Schleife vorzeitig geschlossen" : "");
-  const vNote = variants.length > 1 ? ` · Variante ${activeVariant + 1}/${variants.length}` : "";
-  const note = cls === "warn" ? " – Toleranz nicht erreicht, beste gefundene Route" : "";
+  const target = routeCtx.km ? t("status.target", { km: nfmt(routeCtx.km), dev: devPct }) : "";
+  const trimNote = (route.repaired ? t("status.repaired", { n: route.repaired }) : "") +
+                   (route.trimmed ? t("status.trimmed") : "");
+  const vNote = variants.length > 1
+    ? t("status.variantOf", { i: activeVariant + 1, n: variants.length }) : "";
+  const note = cls === "warn" ? t("status.tolMissed") : "";
   const asc = climbOf(route);
-  const hmNote = asc != null ? ` · ↑ ${asc} hm` : "";
-  setStatus(
-    `<span class="${cls}">${fmtDist(route.distance)}</span>${target} · ca. ${fmtDur(route.duration)}` +
-    ` · doppelt: <span class="${ovCls}">${ovPct} %</span>${hmNote}${trimNote}${vNote}${note}${climbNote()}`
-  );
+  const hmNote = asc != null ? " · " + t("unit.climb", { n: asc }) : "";
+  return `<span class="${cls}">${fmtDist(route.distance)}</span>${target} · ${t("status.approx", { dur: fmtDur(route.duration) })}` +
+         `${t("status.dupl")}<span class="${ovCls}">${ovPct} %</span>${hmNote}${trimNote}${vNote}${note}${climbNote()}`;
 }
 
 /* Was der Höhen-Wunsch bei DIESER Route bewirkt hat – nicht, was gerade
@@ -1429,15 +2015,14 @@ function showRouteStatus(route) {
 function climbNote() {
   const w = routeCtx.wish;
   if (w !== "flat" && w !== "hill") return "";
-  const label = w === "flat" ? "flach" : "bergig";
-  if (routeCtx.terrainFailed) return ` · ${label} gewünscht (Gelände nicht abrufbar)`;
-  if (routeCtx.terrainFlat) return ` · ${label} gewünscht – hier gibt das Gelände kaum Unterschiede her`;
-  return ` · <b>${label} gewünscht</b>`;
+  const name = climbUi(w).name;
+  if (routeCtx.terrainFailed) return t("climb.note.failed", { name });
+  if (routeCtx.terrainFlat) return t("climb.note.flat", { name });
+  return t("climb.note.on", { name });
 }
 
 function fmtDist(m) {
-  return m >= 1000 ? (m / 1000).toLocaleString("de-DE", { maximumFractionDigits: 2 }) + " km"
-                   : Math.round(m) + " m";
+  return m >= 1000 ? nfmt(m / 1000, 2) + " km" : Math.round(m) + " m";
 }
 function fmtDur(s) {
   const h = Math.floor(s / 3600), min = Math.round((s % 3600) / 60);
@@ -1453,11 +2038,11 @@ function cancelSearch() {
 
 async function generate() {
   if (busy) return;
-  if (!start) { toast("Bitte zuerst einen Startpunkt setzen (📍 oder Karte antippen)."); return; }
+  if (!start) { toast(t("toast.needStart")); return; }
   const km = parseFloat(distInput.value);
-  if (!(km > 0)) { toast("Bitte eine gültige Distanz angeben."); return; }
+  if (!(km > 0)) { toast(t("toast.badDist")); return; }
   const meta = modeMeta(mode);
-  if (km > meta.warnKm && !confirm(`${km} km ${meta.label} – wirklich?`)) return;
+  if (km > meta.warnKm && !confirm(t("confirm.longDist", { km: nfmt(km), mode: modeName(mode) }))) return;
 
   cancelSearch();
   const token = genToken;
@@ -1465,7 +2050,7 @@ async function generate() {
 
   busy = true;
   genBtn.disabled = true; variantBtn.disabled = true; $("backBtn").disabled = true;
-  genBtn.innerHTML = '<span class="spinner"></span> Berechne …';
+  genBtn.innerHTML = `<span class="spinner"></span>${t("btn.generate.busy")}`;
   clearRoute();
   routeCtx = { targetM: km * 1000, profile: mode, tol: settings.tolerance / 100, km,
                wish: settings.climbWish };
@@ -1473,7 +2058,7 @@ async function generate() {
   try {
     const res = await makeRoundTrip(start, km * 1000, mode, msg => { if (!cancelled()) setStatus(msg); }, cancelled);
     if (cancelled()) return;
-    if (!res) throw new Error("Keine Route gefunden – anderer Startpunkt oder kürzere Distanz?");
+    if (!res) throw new Error(t("err.noRoute"));
     routeCtx.terrainFailed = res.ctx.terrainFailed;
     routeCtx.terrainFlat = !!(res.ctx.terrain && res.ctx.terrain.flat);
     variants = [res.cand]; activeVariant = 0;
@@ -1485,7 +2070,7 @@ async function generate() {
   } finally {
     busy = false;
     genBtn.disabled = false;
-    genBtn.textContent = "Route erzeugen";
+    genBtn.textContent = t("btn.generate");
     variantBtn.disabled = !lastRoute;
     $("backBtn").disabled = false;
   }
@@ -1544,7 +2129,7 @@ function downloadGPX(coords, name) {
 }
 
 function routeTitle(route) {
-  return `Roundtrip ${fmtDist(route.distance)} (${modeMeta(mode).label})`;
+  return t("route.title", { dist: fmtDist(route.distance), mode: modeName(mode) });
 }
 
 function exportGPX() {
@@ -1685,7 +2270,7 @@ async function loadElevation(route) {
   const box = $("elevBox");
   box.classList.add("show", "loading");
   box.classList.remove("failed");
-  $("elevSummary").innerHTML = '<span class="spinner spinner-inline"></span> Höhenprofil wird geladen …';
+  $("elevSummary").innerHTML = `<span class="spinner spinner-inline"></span> ${t("elev.loading")}`;
   $("elevRange").textContent = "";
   $("elevChart").innerHTML = "";
   try {
@@ -1699,8 +2284,8 @@ async function loadElevation(route) {
     // Nicht spurlos verschwinden lassen – der Dienst ist nur gerade nicht erreichbar
     box.classList.add("failed");
     box.classList.remove("loading");
-    $("elevSummary").textContent = "Höhenprofil nicht verfügbar";
-    $("elevRange").innerHTML = '<button class="linkbtn" type="button" id="elevRetry">erneut versuchen</button>';
+    $("elevSummary").textContent = t("elev.failed");
+    $("elevRange").innerHTML = `<button class="linkbtn" type="button" id="elevRetry">${t("elev.retry")}</button>`;
     $("elevRetry").onclick = () => loadElevation(route);
     $("elevChart").innerHTML = "";
     $("elevTip").textContent = "";
@@ -1717,8 +2302,8 @@ function renderElevation(raw) {
   const elev = smoothElev(raw);
   const st = elevStats(elev);
   const total = elev[elev.length - 1].d;
-  $("elevSummary").innerHTML = `↑ <b>${Math.round(st.asc)} hm</b> · ↓ <b>${Math.round(st.desc)} hm</b>`;
-  $("elevRange").textContent = `${Math.round(st.min)}–${Math.round(st.max)} m ü. NN`;
+  $("elevSummary").innerHTML = t("elev.summary", { asc: Math.round(st.asc), desc: Math.round(st.desc) });
+  $("elevRange").textContent = t("elev.range", { min: Math.round(st.min), max: Math.round(st.max) });
 
   const W = Math.max(220, svg.clientWidth || svg.getBoundingClientRect().width || 280), H = 78;
   const padL = 4, padR = 4, padT = 8, padB = 14;
@@ -1742,7 +2327,7 @@ function renderElevation(raw) {
     `<line class="grid" x1="${x0}" y1="${y1}" x2="${x1}" y2="${y1}"/>` +
     `<path class="area" d="${area}"/><path class="line" d="${line}"/>` +
     `<text class="axis" x="${x0}" y="${H - 3}">0 km</text>` +
-    `<text class="axis" x="${x1}" y="${H - 3}" text-anchor="end">${(total / 1000).toLocaleString("de-DE", { maximumFractionDigits: 1 })} km</text>` +
+    `<text class="axis" x="${x1}" y="${H - 3}" text-anchor="end">${nfmt(total / 1000, 1)} km</text>` +
     `<g id="elevCursor" style="display:none">` +
       `<line class="cross" y1="${y0}" y2="${y1}"/><circle class="puck" r="4"/></g>`;
 
@@ -1773,8 +2358,7 @@ function elevHover(clientX) {
   cur.querySelector("line").setAttribute("x2", X);
   cur.querySelector("circle").setAttribute("cx", X);
   cur.querySelector("circle").setAttribute("cy", Y);
-  $("elevTip").textContent =
-    `${(best.d / 1000).toLocaleString("de-DE", { maximumFractionDigits: 2 })} km · ${Math.round(best.e)} m`;
+  $("elevTip").textContent = `${nfmt(best.d / 1000, 2)} km · ${Math.round(best.e)} m`;
 
   if (!elevMarker) {
     elevMarker = L.circleMarker([best.lat, best.lon], {
@@ -1889,9 +2473,9 @@ async function copyShareLink() {
   const url = shareUrl(lastRoute);
   try {
     await navigator.clipboard.writeText(url);
-    toast("Link kopiert – wer ihn öffnet, sieht genau diese Route.");
+    toast(t("toast.linkCopied"));
   } catch {
-    prompt("Link kopieren:", url);
+    prompt(t("prompt.copyLink"), url);
   }
 }
 
@@ -1932,8 +2516,9 @@ function loadFromHash() {
   setStart(L.latLng(coords[0][0], coords[0][1]), false);
   drawRoute({ coords, waypoints: [], distance: dist, duration, overlap: 0,
               dev: km > 0 ? Math.abs(dist - km * 1000) / (km * 1000) : 0 });
-  setStatus(`🔗 Geteilte Route geladen · ${fmtDist(dist)}` +
-            (duration ? ` · ca. ${fmtDur(duration)}` : "") + ` · ${modeMeta(mode).emoji} ${modeMeta(mode).label}`);
+  setStatusLive(() => t("status.shared", { dist: fmtDist(dist) }) +
+    (duration ? " · " + t("status.approx", { dur: fmtDur(duration) }) : "") +
+    ` · ${modeMeta(mode).emoji} ${modeName(mode)}`);
   return true;
 }
 
@@ -1945,7 +2530,7 @@ let savedRoutes = loadSavedRoutes();
 
 function persistRoutes() {
   try { localStorage.setItem("roundtrip-routes", JSON.stringify(savedRoutes)); return true; }
-  catch { toast("Speichern fehlgeschlagen – Speicher voll? Bitte alte Routen löschen."); return false; }
+  catch { toast(t("toast.saveFailed")); return false; }
 }
 
 /* Standardname: Ortsname (Reverse-Geocoding) + Distanz + Verkehrsmittel */
@@ -1954,11 +2539,11 @@ async function defaultRouteName() {
   try {
     const res = await fetch(
       `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${start.lat}&lon=${start.lng}&zoom=14`,
-      { headers: { "Accept-Language": "de" } });
+      { headers: { "Accept-Language": langMeta().geo } });
     const a = (await res.json()).address || {};
     place = a.suburb || a.village || a.town || a.city_district || a.city || a.municipality || a.county || "";
   } catch { /* offline → ohne Ort */ }
-  const km = (lastRoute.distance / 1000).toLocaleString("de-DE", { maximumFractionDigits: 1 });
+  const km = nfmt(lastRoute.distance / 1000, 1);
   const kind = lastRoute.kind === "return" ? "↩️ " : "";
   return `${kind}${place ? place + " · " : ""}${km} km ${modeMeta(mode).emoji}`;
 }
@@ -1977,22 +2562,22 @@ async function saveCurrentRoute() {
     coords: lastRoute.coords.map(c => [+c[0].toFixed(5), +c[1].toFixed(5)]),
     elev: (lastRoute.elev || []).map(s => ({ d: Math.round(s.d), e: Math.round(s.e * 10) / 10, lat: s.lat, lon: s.lon }))
   });
-  if (persistRoutes()) toast(`Gespeichert: „${name}" – umbenennen unter 📁`);
+  if (persistRoutes()) toast(t("toast.saved", { name }));
   saveBtn.disabled = false;
 }
 
 /* ---------- Sicherung: alles raus, alles rein ---------- */
 function exportRoutes() {
-  if (!savedRoutes.length) { toast("Es sind noch keine Routen gespeichert."); return; }
+  if (!savedRoutes.length) { toast(t("toast.noRoutes")); return; }
   const blob = new Blob(
     [JSON.stringify({ app: "roundtrip", version: 1, exportedAt: new Date().toISOString(), routes: savedRoutes })],
     { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = `roundtrip-routen-${new Date().toISOString().slice(0, 10)}.json`;
+  a.download = `${t("file.export")}-${new Date().toISOString().slice(0, 10)}.json`;
   a.click();
   URL.revokeObjectURL(a.href);
-  toast(`${savedRoutes.length} Route${savedRoutes.length === 1 ? "" : "n"} exportiert.`);
+  toast(tn("toast.exported", savedRoutes.length));
 }
 
 function importRoutes(file) {
@@ -2001,7 +2586,7 @@ function importRoutes(file) {
     try {
       const data = JSON.parse(reader.result);
       const list = Array.isArray(data) ? data : data && data.routes;
-      if (!Array.isArray(list)) throw new Error("unbekanntes Format");
+      if (!Array.isArray(list)) throw new Error(t("err.format"));
       const known = new Set(savedRoutes.map(r => r.id));
       let added = 0, skipped = 0;
       for (const r of list) {
@@ -2011,7 +2596,7 @@ function importRoutes(file) {
         known.add(id);
         savedRoutes.push({
           ...r, id,
-          name: r.name || "Importierte Route",
+          name: r.name || t("route.imported"),
           createdAt: r.createdAt || new Date().toISOString(),
           mode: MODES[r.mode] ? r.mode : "foot"
         });
@@ -2020,15 +2605,16 @@ function importRoutes(file) {
       savedRoutes.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
       if (added && persistRoutes()) {
         renderRoutes();
-        toast(`${added} Route${added === 1 ? "" : "n"} importiert${skipped ? `, ${skipped} übersprungen` : ""}.`);
+        toast(tn("toast.imported", added,
+          { skipped: skipped ? t("toast.imported.skipped", { n: nfmt(skipped) }) : "" }));
       } else if (!added) {
-        toast("Nichts importiert – die Routen sind schon vorhanden.");
+        toast(t("toast.importedNone"));
       }
     } catch (e) {
-      toast("Import fehlgeschlagen: " + e.message);
+      toast(t("toast.importFailed", { err: e.message }));
     }
   };
-  reader.onerror = () => toast("Datei konnte nicht gelesen werden.");
+  reader.onerror = () => toast(t("toast.readFailed"));
   reader.readAsText(file);
 }
 
@@ -2036,7 +2622,10 @@ function renderRoutes() {
   const list = $("routesList");
   list.innerHTML = "";
   if (!savedRoutes.length) {
-    list.innerHTML = '<div style="color:var(--muted);font-size:13px;">Noch keine Routen gespeichert. Erzeuge eine Route und tippe 💾 Speichern.</div>';
+    const empty = document.createElement("div");
+    empty.style.cssText = "color:var(--muted);font-size:13px;";
+    empty.textContent = t("routes.empty");
+    list.appendChild(empty);
     return;
   }
   for (const r of savedRoutes) {
@@ -2044,25 +2633,27 @@ function renderRoutes() {
     div.className = "routeItem";
     div.innerHTML = `<div class="rname"></div><div class="rmeta"></div>
       <div class="ractions">
-        <button class="btn primary" data-act="load">Laden</button>
-        <button class="btn" data-act="rename" title="Umbenennen" aria-label="Umbenennen">✏️<span class="lbl"> Name</span></button>
-        <button class="btn" data-act="gpx" title="Als GPX herunterladen" aria-label="Als GPX herunterladen">⬇️<span class="lbl"> GPX</span></button>
-        <button class="btn" data-act="del" title="Löschen" aria-label="Löschen">🗑️</button>
+        <button class="btn primary" data-act="load">${t("routes.load")}</button>
+        <button class="btn" data-act="rename" title="${t("routes.rename.title")}" aria-label="${t("routes.rename.title")}">✏️<span class="lbl">${t("routes.rename.lbl")}</span></button>
+        <button class="btn" data-act="gpx" title="${t("routes.gpx.title")}" aria-label="${t("routes.gpx.title")}">⬇️<span class="lbl">${t("routes.gpx.lbl")}</span></button>
+        <button class="btn" data-act="del" title="${t("routes.del.title")}" aria-label="${t("routes.del.title")}">🗑️</button>
       </div>`;
     div.querySelector(".rname").textContent = r.name;
     const mm = modeMeta(r.mode);
-    const hm = r.elev && r.elev.length > 1 ? ` · ↑ ${Math.round(elevStats(smoothElev(r.elev)).asc)} hm` : "";
+    const hm = r.elev && r.elev.length > 1
+      ? " · " + t("unit.climb", { n: Math.round(elevStats(smoothElev(r.elev)).asc) }) : "";
     div.querySelector(".rmeta").textContent =
-      `${new Date(r.createdAt).toLocaleDateString("de-DE")} · ${fmtDist(r.distance)} · ca. ${fmtDur(r.duration)}${hm}` +
-      ` · ${mm.emoji} ${mm.label}${r.kind === "return" ? " · ↩️ Rückweg" : ""}`;
+      `${new Date(r.createdAt).toLocaleDateString(langLocale())} · ${fmtDist(r.distance)} · ` +
+      `${t("status.approx", { dur: fmtDur(r.duration) })}${hm}` +
+      ` · ${mm.emoji} ${modeName(r.mode)}${r.kind === "return" ? t("routes.meta.return") : ""}`;
     div.querySelector('[data-act=load]').onclick = () => loadSavedRoute(r);
     div.querySelector('[data-act=rename]').onclick = () => {
-      const n = prompt("Neuer Name:", r.name);
+      const n = prompt(t("prompt.rename"), r.name);
       if (n && n.trim()) { r.name = n.trim(); persistRoutes(); renderRoutes(); }
     };
     div.querySelector('[data-act=gpx]').onclick = () => downloadGPX(r.coords, r.name);
     div.querySelector('[data-act=del]').onclick = () => {
-      if (confirm(`„${r.name}" löschen?`)) {
+      if (confirm(t("confirm.delRoute", { name: r.name }))) {
         savedRoutes = savedRoutes.filter(x => x.id !== r.id);
         persistRoutes(); renderRoutes();
       }
@@ -2079,14 +2670,15 @@ function loadSavedRoute(r) {
   routeCtx = { targetM: (r.targetKm || r.distance / 1000) * 1000, profile: mode,
                tol: settings.tolerance / 100, km: r.targetKm || r.distance / 1000 };
   setStart(L.latLng(r.start.lat, r.start.lng), false,
-           r.kind === "return" ? "Hier startet der Rückweg" : undefined);
+           r.kind === "return" ? t("marker.returnStart") : undefined);
   drawRoute({
     coords: r.coords, waypoints: r.waypoints || [], kind: r.kind || "loop",
     distance: r.distance, duration: r.duration, overlap: r.overlap || 0,
     elev: r.elev && r.elev.length > 1 ? r.elev : null,
     dev: r.targetKm ? Math.abs(r.distance - r.targetKm * 1000) / (r.targetKm * 1000) : 0
   });
-  setStatus(`📁 „${r.name}" geladen · ${fmtDist(r.distance)} · ca. ${fmtDur(r.duration)}`);
+  setStatusLive(() => t("status.savedLoaded",
+    { name: r.name, dist: fmtDist(r.distance), dur: t("status.approx", { dur: fmtDur(r.duration) }) }));
 }
 
 /* ================= Live-Standort =================
@@ -2149,7 +2741,7 @@ function onLivePos(pos, immediate) {
   livePos = { lat: pos.coords.latitude, lng: pos.coords.longitude,
               accuracy: pos.coords.accuracy, time: Date.now() };
   trackAddPoint(livePos);      // zeichnet nur auf, wenn die Aufzeichnung läuft
-  if (liveBtnEl) { liveBtnEl.classList.remove("denied"); liveBtnEl.title = "Start auf aktuellen Standort setzen"; }
+  if (liveBtnEl) { liveBtnEl.classList.remove("denied"); liveBtnEl.title = t("live.setStart"); }
   if (immediate) {
     clearTimeout(liveRenderTimer); liveRenderTimer = null;
     liveLastRender = Date.now(); renderLive();
@@ -2169,7 +2761,7 @@ function onLiveError(err) {
     if (liveBtnEl) {
       liveBtnEl.classList.remove("live");
       liveBtnEl.classList.add("denied");
-      liveBtnEl.title = "Standortfreigabe verweigert";
+      liveBtnEl.title = t("live.denied");
     }
   }
 }
@@ -2186,7 +2778,7 @@ function pollLiveOnce() {
 function startLiveTracking() {
   if (!navigator.geolocation || liveWatchId !== null) return;
   if (!secureEnough()) {
-    if (liveBtnEl) { liveBtnEl.classList.add("denied"); liveBtnEl.title = "Standort braucht HTTPS oder localhost"; }
+    if (liveBtnEl) { liveBtnEl.classList.add("denied"); liveBtnEl.title = t("live.insecure"); }
     return;
   }
   liveWatchId = navigator.geolocation.watchPosition(
@@ -2276,8 +2868,8 @@ function trackAddPoint(p) {
 }
 
 function startRecording(resume) {
-  if (!navigator.geolocation) { toast("Dieses Gerät liefert keinen Standort."); return false; }
-  if (!secureEnough()) { toast("Aufzeichnung braucht HTTPS oder localhost."); return false; }
+  if (!navigator.geolocation) { toast(t("toast.noGeoDevice")); return false; }
+  if (!secureEnough()) { toast(t("toast.needHttps")); return false; }
   track.recording = true;
   if (!track.startedAt) track.startedAt = Date.now();
   if (!resume) track.mode = mode;
@@ -2289,7 +2881,7 @@ function startRecording(resume) {
   trackTickTimer = setInterval(renderTrackStats, 1000);   // Dauer soll auch im Stehen weiterlaufen
   persistTrack(true);
   renderTrackUI();
-  if (!resume) toast("Aufzeichnung läuft – der Hinweg wird mitgeschrieben.");
+  if (!resume) toast(t("toast.recStarted"));
   return true;
 }
 
@@ -2302,7 +2894,7 @@ function stopRecording() {
 }
 
 function discardTrack() {
-  if (trackHasData() && !confirm("Aufgezeichnete Strecke verwerfen?")) return;
+  if (trackHasData() && !confirm(t("confirm.discardTrack"))) return;
   track = emptyTrack();
   returnRoutes = []; returnBase = null;
   clearInterval(trackTickTimer); trackTickTimer = null;
@@ -2347,7 +2939,7 @@ function renderTrack() {
   if (trackDestMarker) trackDestMarker.setLatLng(coords[0]);
   else trackDestMarker = L.circleMarker(coords[0], { radius: 7, color: cssVar("--bg"), weight: 3,
                                                      fillColor: cssVar("--track"), fillOpacity: 1 })
-    .addTo(map).bindTooltip("Start der Aufzeichnung – hierhin führt der Rückweg");
+    .addTo(map).bindTooltip(t("track.tooltip"));
 }
 
 function trackDuration() {
@@ -2358,32 +2950,31 @@ function trackDuration() {
 
 function renderTrackStats() {
   $("trackStats").textContent = track.points.length
-    ? `${fmtDist(track.distance)} · ${fmtDur(trackDuration())} · ${track.points.length} Punkte`
+    ? `${fmtDist(track.distance)} · ${fmtDur(trackDuration())} · ${tn("track.points", track.points.length)}`
     : "";
 }
 
 function renderTrackUI() {
   const rec = track.recording, has = trackHasData();
-  $("trackTitle").innerHTML = rec ? '<span class="recdot"></span> Aufzeichnung läuft'
-                            : has ? "↩️ Hinweg aufgezeichnet"
-                                  : "↩️ Rückweg später";
+  $("trackTitle").innerHTML = rec ? `<span class="recdot"></span> ${t("track.recording")}`
+                            : has ? t("track.recorded")
+                                  : t("track.later");
   const recBtn = $("recBtn");
   recBtn.classList.toggle("rec", rec);
-  recBtn.innerHTML = rec ? '⏹<span class="lbl"> Stopp</span>'
-                         : track.points.length ? '⏺<span class="lbl"> Weiter</span>'
-                                               : '⏺<span class="lbl"> Aufzeichnen</span>';
-  const recLabel = rec ? "Aufzeichnung beenden"
-                       : track.points.length ? "Aufzeichnung fortsetzen" : "Hinweg aufzeichnen";
+  const recState = rec ? "stop" : track.points.length ? "resume" : "start";
+  recBtn.innerHTML = (rec ? "⏹" : "⏺") +
+    `<span class="lbl">${t("track.rec.lbl." + recState)}</span>`;
+  const recLabel = t("track.rec.title." + recState);
   recBtn.title = recLabel;
   recBtn.setAttribute("aria-label", recLabel);
 
   $("trackDelBtn").style.display = track.points.length ? "" : "none";
   $("backRow").style.display = has ? "" : "none";
-  $("backBtn").textContent = returnRoutes.length ? "🎲 Anderer Rückweg" : "↩️ Rückweg finden";
+  $("backBtn").textContent = returnRoutes.length ? t("track.back.other") : t("track.back.find");
   $("trackHint").innerHTML = rec
-    ? "Läuft weiter, solange die Seite offen ist – und übersteht einen Neustart."
-    : has ? `Der Rückweg startet dort, wo du gerade stehst, und meidet die aufgezeichneten <b>${fmtDist(track.distance)}</b>.`
-          : "Zeichnet den Hinweg per GPS auf. Später führt ein Knopfdruck auf einem anderen Weg zurück.";
+    ? t("track.hint.rec")
+    : has ? t("track.hint.has", { dist: fmtDist(track.distance) })
+          : t("track.hint.none");
   renderTrackStats();
 }
 
@@ -2516,7 +3107,7 @@ async function searchReturn(from, to, profile, onProgress, cancelled) {
   const tryWaypoints = async wps => {
     if (requests >= RETURN_BUDGET || cancelled()) return null;
     requests++;
-    onProgress(`<span class="spinner spinner-inline"></span> Suche Rückweg … (Versuch ${requests})`);
+    onProgress(`<span class="spinner spinner-inline"></span> ${t("progress.return", { n: requests })}`);
     let r;
     try { r = await osrmRoute([from, ...wps, to], profile); } catch { return null; }
     if (cancelled() || !r || r.distance < 50 || (r.avgSnap || 0) > MAX_SNAP_M) return null;
@@ -2570,19 +3161,21 @@ async function searchReturn(from, to, profile, onProgress, cancelled) {
 }
 
 function showReturnStatus(route, base, fresh) {
-  const pct = (v, d = 0) => (v * 100).toLocaleString("de-DE", { maximumFractionDigits: d });
+  setStatusLive(() => returnStatusHtml(route, base, fresh));
+}
+
+function returnStatusHtml(route, base, fresh) {
+  const pct = (v, d = 0) => nfmt(v * 100, d);
   const shareCls = route.shared <= RETURN_GOOD_SHARE ? "ok" : "warn";
   const detour = base && base.distance ? route.distance / base.distance - 1 : 0;
   // Kommt derselbe Weg noch einmal, wird das gesagt – wortlos dieselbe Linie
   // neu zu zeichnen sieht wie ein hängender Knopf aus.
-  const note = fresh === false
-    ? ' – <span class="warn">einen anderen Weg gibt das Wegenetz hier nicht her</span>'
-    : route.shared > RETURN_GOOD_SHARE ? " – mehr Ausweichmöglichkeiten gab das Wegenetz nicht her" : "";
-  setStatus(
-    `↩️ Rückweg · <span class="ok">${fmtDist(route.distance)}</span> · ca. ${fmtDur(route.duration)}` +
-    ` · gemeinsam mit dem Hinweg: <span class="${shareCls}">${pct(route.shared)} %</span>` +
-    (detour > 0.02 ? ` · ${pct(detour)} % Umweg` : "") + note
-  );
+  const note = fresh === false ? t("status.return.same")
+    : route.shared > RETURN_GOOD_SHARE ? t("status.return.partly") : "";
+  return t("status.return.head") +
+    `<span class="ok">${fmtDist(route.distance)}</span> · ${t("status.approx", { dur: fmtDur(route.duration) })}` +
+    `${t("status.return.shared")}<span class="${shareCls}">${pct(route.shared)} %</span>` +
+    (detour > 0.02 ? t("status.return.detour", { p: pct(detour) }) : "") + note;
 }
 
 /* Der eine Knopfdruck: Aufzeichnung beenden, Standort bestimmen, Rückweg suchen,
@@ -2590,7 +3183,7 @@ function showReturnStatus(route, base, fresh) {
    GPX, Navigation und Speichern funktionieren wie bei einem Rundkurs. */
 async function findReturn() {
   if (busy) return;
-  if (!trackHasData()) { toast("Es ist noch keine Strecke aufgezeichnet."); return; }
+  if (!trackHasData()) { toast(t("toast.noTrack")); return; }
   if (track.recording) stopRecording();          // angekommen – damit ist der Hinweg fertig
   const coords = trackCoords();
   const to = coords[0];
@@ -2600,26 +3193,26 @@ async function findReturn() {
     ? [livePos.lat, livePos.lng] : coords[coords.length - 1];
   const crow = segLen(here, to);
   if (crow < RETURN_MIN_CROW) {
-    setStatus(`Nur noch ${Math.round(crow)} m Luftlinie bis zum Startpunkt – dafür lohnt kein Rückweg.`);
+    setStatusLive(() => t("status.tooClose", { m: Math.round(crow) }));
     return;
   }
 
   cancelSearch();
-  setStart(L.latLng(here[0], here[1]), false, "Hier startet der Rückweg");
+  setStart(L.latLng(here[0], here[1]), false, t("marker.returnStart"));
   const token = genToken;
   const cancelled = () => token !== genToken;
 
   busy = true;
   const backBtn = $("backBtn");
   backBtn.disabled = true; genBtn.disabled = true; variantBtn.disabled = true;
-  backBtn.innerHTML = '<span class="spinner"></span> Suche …';
+  backBtn.innerHTML = `<span class="spinner"></span>${t("track.back.busy")}`;
   clearRoute();
   routeCtx = { targetM: 0, profile: mode, tol: settings.tolerance / 100, km: 0 };
 
   try {
     const res = await searchReturn(here, to, mode, msg => { if (!cancelled()) setStatus(msg); }, cancelled);
     if (cancelled()) return;
-    if (!res) throw new Error("Kein Rückweg gefunden – hier liefert der Router nichts.");
+    if (!res) throw new Error(t("err.noReturn"));
     routeCtx = { targetM: res.cand.distance, profile: mode,
                  tol: settings.tolerance / 100, km: res.cand.distance / 1000 };
     // Der nächste Vorschlag meidet auch diesen – aber nur die jüngsten vier,
@@ -2648,12 +3241,12 @@ async function findReturn() {
 /* Setzt den blauen Start-Marker auf den aktuellen Standort. Ist ein frischer
    Live-Fix vorhanden, geht das ohne Wartezeit. */
 function locate() {
-  if (!navigator.geolocation) { toast("Geolocation wird nicht unterstützt."); return; }
+  if (!navigator.geolocation) { toast(t("toast.noGeoApi")); return; }
   if (livePos && Date.now() - livePos.time < LIVE_FRESH_MS) {
     setStart(L.latLng(livePos.lat, livePos.lng), true);
     return;
   }
-  setStatus("Ermittle Standort …");
+  setStatus(t("progress.locating"));
   if (liveBtnEl) liveBtnEl.classList.add("busy");
   navigator.geolocation.getCurrentPosition(
     pos => {
@@ -2665,8 +3258,7 @@ function locate() {
       if (liveBtnEl) liveBtnEl.classList.remove("busy");
       onLiveError(err);
       setStatus("");
-      toast("Standort nicht verfügbar (" + err.message + "). Tipp: Karte antippen oder Adresse suchen. " +
-            "Hinweis: Geolocation braucht HTTPS oder localhost.");
+      toast(t("toast.locFailed", { err: err.message }));
     },
     { enableHighAccuracy: true, timeout: 10000 }
   );
@@ -2677,7 +3269,7 @@ async function doSearch(q) {
   if (q.length < 3) { searchResults.style.display = "none"; return; }
   try {
     const res = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&q=${encodeURIComponent(q)}`,
-      { headers: { "Accept-Language": "de" } });
+      { headers: { "Accept-Language": langMeta().geo } });
     const items = await res.json();
     searchResults.innerHTML = "";
     items.forEach(it => {
@@ -2698,10 +3290,13 @@ async function doSearch(q) {
 function loadSettings() {
   try {
     const s = JSON.parse(localStorage.getItem("roundtrip-settings"));
+    // lang: null heißt „der Browser entscheidet“ – eine ausdrückliche Wahl
+    // steht hier als Sprachcode und überlebt jeden Browserwechsel.
     return { tolerance: s?.tolerance ?? 5, avoidMotorway: s?.avoidMotorway ?? true,
              returnDetour: s?.returnDetour ?? 60, theme: s?.theme ?? "auto",
-             climbWish: s?.climbWish ?? "any" };
-  } catch { return { tolerance: 5, avoidMotorway: true, returnDetour: 60, theme: "auto", climbWish: "any" }; }
+             climbWish: s?.climbWish ?? "any", lang: s?.lang ?? null };
+  } catch { return { tolerance: 5, avoidMotorway: true, returnDetour: 60, theme: "auto",
+                     climbWish: "any", lang: null }; }
 }
 function saveSettings() {
   try { localStorage.setItem("roundtrip-settings", JSON.stringify(settings)); } catch { /* privater Modus */ }
@@ -2716,7 +3311,8 @@ function applyTheme() {
   const btn = $("themeBtn");
   if (btn) {
     btn.textContent = isDark() ? "☀️" : "🌙";
-    btn.title = isDark() ? "Auf helles Thema umschalten" : "Auf dunkles Thema umschalten";
+    btn.title = isDark() ? t("head.theme.toLight") : t("head.theme.toDark");
+    btn.setAttribute("aria-label", btn.title);
   }
   // Leaflet-Ebenen kennen kein CSS – Farben nachziehen
   const accent = cssVar("--accent"), bg = cssVar("--bg"), ghost = cssVar("--ghost");
@@ -2736,9 +3332,24 @@ const distInput = $("distInput"), genBtn = $("genBtn"), variantBtn = $("variantB
       shareBtn = $("shareBtn"), saveBtn = $("saveBtn"), locateBtn = $("locateBtn"), statusEl = $("status"),
       searchInput = $("searchInput"), searchResults = $("searchResults"),
       modalBg = $("modalBg"), tolInput = $("tolInput"), mwInput = $("mwInput"), detourInput = $("detourInput"),
-      themeInput = $("themeInput"), toastEl = $("toast");
+      themeInput = $("themeInput"), langInput = $("langInput"), toastEl = $("toast");
 
-function setStatus(html) { statusEl.innerHTML = html; }
+/* Die Statuszeile trägt das jüngste Ergebnis. Damit sie einen Sprachwechsel
+   überlebt, wird bei allem, was stehen bleibt, nicht der fertige Text gemerkt,
+   sondern die Funktion, die ihn erzeugt. Fortschrittsmeldungen sind flüchtig
+   und kommen ohne. */
+let statusThunk = null;
+function setStatus(html) {
+  statusEl.removeAttribute("data-i18n-html");      // der Starttext gehört nur der leeren Zeile
+  statusEl.innerHTML = html;
+  statusThunk = null;
+}
+function setStatusLive(fn) {
+  statusThunk = fn;
+  statusEl.removeAttribute("data-i18n-html");
+  statusEl.innerHTML = fn();
+}
+function redrawStatus() { if (statusThunk) statusEl.innerHTML = statusThunk(); }
 let toastTimer = null;
 function toast(msg) {
   toastEl.textContent = msg; toastEl.style.display = "block";
@@ -2759,21 +3370,21 @@ saveBtn.onclick = saveCurrentRoute;
 locateBtn.onclick = locate;
 
 /* ---------- Höhenmeter-Wunsch ---------- */
-const CLIMB_UI = {
-  any:  { icon: "🏔️", label: "Höhe",   name: "egal" },
-  flat: { icon: "🏞️", label: "Flach",  name: "flach" },
-  hill: { icon: "⛰️", label: "Bergig", name: "bergig" }
+const CLIMB_ICON = { any: "🏔️", flat: "🏞️", hill: "⛰️" };
+const climbUi = w => {
+  const key = CLIMB_ICON[w] ? w : "any";
+  return { icon: CLIMB_ICON[key], label: t(`climb.${key}.lbl`), name: t(`climb.${key}.name`) };
 };
 const climbBtn = $("climbBtn"), climbPop = $("climbPop");
 
 /* Der Knopf trägt den Zustand selbst: Ein Wunsch, der nur in einem
    geschlossenen Fenster steht, ist drei Routen später unerklärlich. */
 function renderClimbBtn() {
-  const ui = CLIMB_UI[settings.climbWish] || CLIMB_UI.any;
+  const ui = climbUi(settings.climbWish);
   climbBtn.innerHTML = `${ui.icon}<span class="lbl"> ${ui.label}</span>`;
   climbBtn.classList.toggle("set", wantsClimb());
-  climbBtn.title = `Höhenmeter-Wunsch: ${ui.name}`;
-  climbBtn.setAttribute("aria-label", `Höhenmeter-Wunsch: ${ui.name}`);
+  climbBtn.title = t("climb.btn.title", { name: ui.name });
+  climbBtn.setAttribute("aria-label", climbBtn.title);
   climbPop.querySelectorAll(".climbOpt").forEach(o =>
     o.classList.toggle("on", o.dataset.wish === settings.climbWish));
 }
@@ -2804,10 +3415,9 @@ climbPop.querySelectorAll(".climbOpt").forEach(opt => {
     renderClimbBtn();
     closeClimbPop();
     climbBtn.focus();
-    const ui = CLIMB_UI[settings.climbWish];
     toast(wantsClimb()
-      ? `Höhenmeter: ${ui.name}. Gilt ab der nächsten Route – 🎲 Würfeln sucht neu.`
-      : "Höhenmeter: egal. Distanz und Rundheit entscheiden wieder allein.");
+      ? t("climb.toast.set", { name: climbUi(settings.climbWish).name })
+      : t("climb.toast.off"));
   };
 });
 document.addEventListener("click", e => {
@@ -2853,6 +3463,7 @@ $("grabber").addEventListener("pointerup", e => {
 });
 
 /* ---------- Gespeicherte Routen ---------- */
+function routesBgOpen() { return $("routesBg").style.display === "flex"; }
 $("routesBtn").onclick = () => { renderRoutes(); $("routesBg").style.display = "flex"; };
 $("routesClose").onclick = () => $("routesBg").style.display = "none";
 $("routesBg").onclick = e => { if (e.target === $("routesBg")) $("routesBg").style.display = "none"; };
@@ -2891,11 +3502,31 @@ $("gearBtn").onclick = () => {
   mwInput.checked = settings.avoidMotorway;
   detourInput.value = settings.returnDetour;
   themeInput.value = settings.theme || "auto";
+  langInput.value = settings.lang || "auto";
   modalBg.style.display = "flex";
 };
 $("modalCancel").onclick = () => modalBg.style.display = "none";
 modalBg.onclick = e => { if (e.target === modalBg) modalBg.style.display = "none"; };
 themeInput.onchange = () => { settings.theme = themeInput.value; applyTheme(); };  // sofort sichtbar
+
+/* ---------- Sprache ----------
+   Der Wechsel wirkt sofort, wie beim Thema: Ein Menü, das die eigene Sprache
+   erst nach „Speichern" zeigt, lässt einen im Dunkeln. Die Liste kommt aus
+   LANGS – eine weitere Sprache steht ohne Zutun hier drin. */
+function langSelectOptions() {
+  const auto = t("settings.lang.auto", { name: (LANGS[detectLang()] || LANGS[BASE_LANG]).label });
+  const want = langInput.value || settings.lang || "auto";
+  langInput.innerHTML = "";
+  const add = (value, label) => {
+    const o = document.createElement("option");
+    o.value = value; o.textContent = label;
+    langInput.appendChild(o);
+  };
+  add("auto", auto);
+  for (const code in LANGS) add(code, LANGS[code].label);
+  langInput.value = (want === "auto" || LANGS[want]) ? want : "auto";
+}
+langInput.onchange = () => setLang(langInput.value, { save: false });
 $("modalSave").onclick = () => {
   settings.tolerance = Math.min(50, Math.max(1, parseFloat(tolInput.value) || 5));
   settings.avoidMotorway = mwInput.checked;
@@ -2904,8 +3535,9 @@ $("modalSave").onclick = () => {
   saveSettings();
   applyTheme();
   modalBg.style.display = "none";
-  toast(`Gespeichert: ±${settings.tolerance} % Toleranz, Autobahn ${settings.avoidMotorway ? "vermeiden" : "erlaubt"}, ` +
-        `Rückweg-Umweg ${settings.returnDetour} %`);
+  toast(t("settings.toast", { tol: nfmt(settings.tolerance),
+                              mw: t(settings.avoidMotorway ? "settings.mw.avoid" : "settings.mw.allow"),
+                              detour: nfmt(settings.returnDetour) }));
 };
 
 /* ================= Einstiegstour =================
@@ -2919,31 +3551,20 @@ $("modalSave").onclick = () => {
 const TOUR_KEY = "roundtrip-tour";
 const TOUR_VERSION = 1;
 
+/* Schritte tragen Schlüssel, keine Sätze: So spricht die Tour dieselbe Sprache
+   wie der Rest – auch wenn sie mitten im ersten Schritt gewechselt wird. */
 const TOUR_STEPS = [
-  { el: "searchWrap", title: "Wo geht es los?",
-    text: "Adresse eingeben, auf die Karte tippen oder den 📍-Knopf für den eigenen Standort. " +
-          "Start und Ziel sind derselbe Punkt – es wird ja eine Runde." },
-  { el: "tripRow", title: "Wie weit, womit?",
-    text: "Wunschdistanz und Verkehrsmittel. Die App sucht eine echte Straßenroute, die möglichst " +
-          "nah an die Distanz herankommt und dabei rund verläuft, statt zweimal durch dieselbe Straße." },
-  { el: "genBtn", title: "Route erzeugen",
-    text: "Der erste Vorschlag steht sofort. Weitere sucht die App danach im Hintergrund – " +
-          "🎲 Würfeln fragt jederzeit nach neuen Richtungen." },
-  { el: "climbBtn", title: "Flach oder bergig?",
-    text: "Hier wünschst du dir mehr oder weniger Höhenmeter. Was eingestellt ist, steht danach " +
-          "im Knopf – und gilt ab der nächsten Route." },
-  { el: "trackBox", title: "Rückweg später",
-    text: "Den Hinweg unterwegs aufzeichnen – und Stunden später findet die App einen Rückweg, " +
-          "der ihn meidet. Die Seite darf dazwischen geschlossen werden." }
+  { el: "searchWrap", title: "tour.s1.title", text: "tour.s1.text" },
+  { el: "tripRow",    title: "tour.s2.title", text: "tour.s2.text" },
+  { el: "genBtn",     title: "tour.s3.title", text: "tour.s3.text" },
+  { el: "climbBtn",   title: "tour.s4.title", text: "tour.s4.text" },
+  { el: "trackBox",   title: "tour.s5.title", text: "tour.s5.text" }
 ];
 
 /* Einzelne Hinweise für das, was es erst später zu sehen gibt */
 const TOUR_MARKS = {
-  variants: { el: "variants", title: "Mehrere Vorschläge",
-    text: "Jeder Chip ist eine Route in eine andere Richtung; die gestrichelten Linien auf der Karte " +
-          "gehören dazu. Antippen schaltet um." },
-  elev: { el: "elevBox", title: "Das Höhenprofil",
-    text: "Mit Maus oder Finger darüberfahren: Die Karte zeigt mit, wo auf der Strecke du gerade bist." }
+  variants: { el: "variants", title: "tour.m.variants.title", text: "tour.m.variants.text" },
+  elev: { el: "elevBox", title: "tour.m.elev.title", text: "tour.m.elev.text" }
 };
 
 function loadTourState() {
@@ -2959,6 +3580,7 @@ function saveTourState() {
 
 let tourState = loadTourState();
 let tourSteps = null, tourIdx = 0, tourSingle = false, tourQueue = [];
+let tourFirstRun = false;      // nur die allererste Tour zeigt die Sprachwahl
 let tourQuiet = false;         // geteilter Link: keine Tour, auch keine Einzelhinweise
 
 function tourRun(steps, single) {
@@ -2985,14 +3607,15 @@ function tourRender() {
   hole.style.width = (r.width + pad * 2) + "px";
   hole.style.height = (r.height + pad * 2) + "px";
 
-  $("tourTitle").textContent = step.title;
-  $("tourText").textContent = step.text;
+  $("tourTitle").textContent = t(step.title);
+  $("tourText").textContent = t(step.text);
   $("tourDots").innerHTML = tourSingle ? "" :
     tourSteps.map((_, i) => `<i class="${i === tourIdx ? "on" : ""}"></i>`).join("");
   $("tourBack").style.display = tourIdx > 0 ? "" : "none";
   $("tourNext").textContent = tourIdx === tourSteps.length - 1
-    ? (tourSingle ? "Alles klar" : "Fertig") : "Weiter";
+    ? t(tourSingle ? "tour.ok" : "tour.done") : t("tour.next");
   $("tourSkip").style.display = tourSingle ? "none" : "";
+  renderTourLang();
 
   const tour = $("tour");
   tour.classList.add("show");
@@ -3006,6 +3629,28 @@ function tourRender() {
   bubble.style.left = Math.min(Math.max(12, r.left + r.width / 2 - b.width / 2),
                                window.innerWidth - b.width - 12) + "px";
   $("tourNext").focus();
+}
+
+/* Die Sprachwahl der Tour: sichtbar genau im ersten Schritt der ersten Tour.
+   Wer die Einführung aus den Einstellungen erneut aufruft, hat die Sprache
+   dort gerade direkt daneben – dann wäre sie hier doppelt. */
+function renderTourLang() {
+  const box = $("tourLang");
+  const show = tourFirstRun && !tourSingle && tourIdx === 0;
+  box.hidden = !show;
+  if (!show) return;
+  $("tourLangLabel").textContent = t("tour.lang");
+  const opts = $("tourLangOpts");
+  opts.innerHTML = "";
+  for (const code in LANGS) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "tourLangOpt" + (code === lang ? " on" : "");
+    b.textContent = LANGS[code].label;
+    b.setAttribute("aria-pressed", code === lang ? "true" : "false");
+    b.onclick = () => { if (code !== lang) setLang(code); };   // applyLang zeichnet die Tour neu
+    opts.appendChild(b);
+  }
 }
 
 function tourNext() {
@@ -3048,6 +3693,7 @@ $("tourAgainBtn").onclick = () => {
   modalBg.style.display = "none";
   tourState.skipped = false;
   saveTourState();
+  tourFirstRun = false;
   tourRun(TOUR_STEPS);
 };
 $("tour").addEventListener("keydown", e => {
@@ -3066,8 +3712,7 @@ window.addEventListener("resize", () => { if (tourSteps) tourRender(); });
 /* Beim Laden: Thema setzen, geteilten Link öffnen, Live-Standort verfolgen
    (ohne Fehler-Toast). Der erste Fix belegt den Startpunkt vor – aber nur,
    wenn nicht ohnehin eine geteilte Route geladen wurde. */
-applyTheme();
-renderClimbBtn();
+applyLang();                      // beschriftet die Seite, setzt Thema und Knöpfe
 const openedShared = loadFromHash();
 if (openedShared) liveFirstFix = false;
 tourQuiet = !!openedShared;
@@ -3075,7 +3720,10 @@ restoreTrack(!openedShared);      // Verkehrsmittel der Aufzeichnung nur ohne ge
 startLiveTracking();
 // Erster Besuch: kurz zeigen, wo was ist – nach einem Moment, damit Karte und
 // Panel stehen und die Tour nicht auf einen wandernden Knopf zeigt.
-if (!tourQuiet && !tourState.done) setTimeout(() => tourRun(TOUR_STEPS), 700);
+if (!tourQuiet && !tourState.done) {
+  tourFirstRun = true;            // erste Tour: Sprachwahl im ersten Schritt
+  setTimeout(() => tourRun(TOUR_STEPS), 700);
+}
 </script>
 </body>
 </html>

@@ -10,6 +10,9 @@ Dazu kommt der **Rückweg** („Roundtrip But Later"): den Hinweg von A nach B
 live aufzeichnen und später per Knopfdruck einen Weg zurück finden, der
 möglichst wenig von der aufgezeichneten Strecke wiederholt.
 
+Die Oberfläche gibt es auf **Deutsch und Englisch**; welche gilt, entscheidet
+der Browser – und wer will, stellt sie um (siehe [Sprachen](#sprachen)).
+
 Die gesamte Anwendung ist **eine einzige `index.html`** – kein Build-Schritt,
 kein Bundler, kein Backend. Öffnen (lokal oder gehostet) genügt.
 
@@ -21,6 +24,7 @@ kein Bundler, kein Backend. Öffnen (lokal oder gehostet) genügt.
 - [Der Rundkurs-Algorithmus](#der-rundkurs-algorithmus)
 - [Der Höhenmeter-Wunsch](#der-höhenmeter-wunsch)
 - [Die Einstiegstour](#die-einstiegstour)
+- [Sprachen](#sprachen)
 - [Der Rückweg („Roundtrip But Later")](#der-rückweg-roundtrip-but-later)
 - [Verwendete Dienste](#verwendete-dienste)
 - [Architektur der `index.html`](#architektur-der-indexhtml)
@@ -112,6 +116,9 @@ npm test
   Bedienung – der Rest abgedunkelt, der erklärte Bereich hervorgehoben (siehe
   [unten](#die-einstiegstour)). Über die Einstellungen jederzeit wieder
   abrufbar.
+- **Zweisprachig** (Deutsch/Englisch): erkannt am Browser, umstellbar in den
+  Einstellungen und – beim allerersten Öffnen – direkt in der Einstiegstour
+  (siehe [unten](#sprachen)).
 - **Hell/Dunkel-Thema**: automatisch (Systemeinstellung) oder manuell,
   inklusive angepasster Kartenkacheln per CSS-Filter.
 - **Responsives Layout**: Panel wird auf schmalen Bildschirmen zur
@@ -358,9 +365,70 @@ Weitere Regeln, die sich aus dem Zweck ergeben:
   in der Sprechblase gefangen, solange sie offen ist.
 - **Zurückholbar**: In den Einstellungen liegt „🧭 Kurze Einführung noch einmal
   zeigen".
+- **Sprachwahl im ersten Schritt**: Genau dort, wo jemand die App zum ersten
+  Mal sieht, stehen über der Überschrift zwei kleine Pillen („🌐 Sprache:
+  Deutsch | English"). Hat der Browser danebengelegen, ist das eine Berührung
+  – ohne dass man dafür erst die Einstellungen finden müsste. Ab dem zweiten
+  Schritt sind sie weg, und die wiederholte Tour aus den Einstellungen zeigt
+  sie gar nicht erst: Dort liegt die Sprache ohnehin zwei Zeilen darüber.
 - Gemerkt wird das in `localStorage` unter `roundtrip-tour`, zusammen mit einer
   Versionsnummer – so lässt sich später ein einzelner neuer Hinweis nachreichen,
   ohne allen wieder die ganze Tour vorzusetzen.
+
+## Sprachen
+
+Die Oberfläche spricht **Deutsch und Englisch**. Welche Sprache gilt, ist in
+dieser Reihenfolge entschieden:
+
+1. die **ausdrücklich gewählte** (`settings.lang` im `localStorage`) – sie
+   schlägt alles und überlebt jeden Browserwechsel,
+2. sonst die **erste vom Browser gewünschte**, die es hier gibt
+   (`navigator.languages`; `de-AT` zählt als `de`),
+3. sonst `DEFAULT_LANG` – Englisch, denn wer weder Deutsch noch Englisch
+   wünscht, kommt damit eher zurecht.
+
+**Wo man umstellt** – zwei Orte, beide dort, wo die Frage ohnehin auftaucht:
+
+| Ort | Wann |
+| --- | --- |
+| Einstellungen ⚙️ → „Sprache / Language" | jederzeit; „Automatisch (…)" gibt dem Browser das Wort zurück und nennt dabei, was er gerade wollte |
+| Einstiegstour, erster Schritt | beim allerersten Öffnen, falls der Browser danebenlag |
+
+Bewusst **kein** eigener Knopf in der Kopfzeile: Dort stehen schon Thema,
+Routen und Einstellungen; ein vierter für etwas, das man einmal im Leben
+antippt, kostet mehr Platz als er einbringt. Das Menü sitzt dafür direkt neben
+„Erscheinungsbild" – beides betrifft die Darstellung, und beides wirkt sofort,
+noch bevor „Speichern" gedrückt ist.
+
+### Wie es gebaut ist
+
+Alle Texte stehen in **einem Objekt `STR`**, je Sprache ein flaches Wörterbuch
+mit denselben Schlüsseln (`"btn.generate"`, `"status.target"`, …). Dazu kommt
+`LANGS` mit dem Nötigen drumherum: Anzeigename, Locale für Zahlen und Datum
+(`1,23 km` gegen `1.23 km`) und der Sprachcode für Nominatim.
+
+- `t("key", { name: … })` liefert einen Text; Platzhalter heißen `{name}`.
+- `tn("key", n)` wählt zwischen `key.one` und `key.other` – so behält jede
+  Sprache ihre eigene Mehrzahl.
+- Fehlt ein Schlüssel, greift `BASE_LANG` (Deutsch, die Quelltext-Sprache);
+  fehlt er auch dort, steht der Schlüssel selbst da. Nichts bleibt leer.
+- **Statische** Texte hängen als `data-i18n`, `data-i18n-html`,
+  `data-i18n-title`, `data-i18n-aria` oder `data-i18n-placeholder` am Element;
+  `applyLang()` geht einmal darüber.
+- **Errechnete** Texte (Statuszeile, Chips, Rückweg-Box, Tour) entstehen in
+  ihren Render-Funktionen, die `applyLang()` gleich mit aufruft. Die
+  Statuszeile merkt sich dafür nicht den fertigen Satz, sondern die Funktion,
+  die ihn erzeugt (`setStatusLive`) – deshalb wechselt auch eine schon
+  angezeigte Route die Sprache, ohne neu gerechnet zu werden.
+
+**Eine weitere Sprache hinzuzufügen sind genau zwei Handgriffe:** ein Eintrag
+in `LANGS` und eine Kopie des Schlüsselsatzes in `STR`. Kein anderer Baustein
+der App nennt eine Sprache beim Namen – Menü, Tour-Pillen und „Automatisch"
+lesen ihre Liste aus `LANGS`. Die Suite `i18n` meldet jeden fehlenden Schlüssel
+und jeden Platzhalter, der zwischen zwei Sprachen abweicht.
+
+Nicht übersetzt wird bewusst: Einheiten bleiben **metrisch** (die App rechnet
+durchgehend in Metern), und die Kommentare im Quelltext bleiben deutsch.
 
 ## Verwendete Dienste
 
@@ -394,6 +462,8 @@ gegliedert (per Kommentar-Überschriften `================= … ================
 <script>
   Konfiguration      OSRM-Endpunkte, Modus-Metadaten, Algorithmus-Konstanten
   State              Route/Varianten/Höhenprofil/Live-Standort-Zustand
+  Sprachen (i18n)    LANGS, Wörterbücher STR, t()/tn()/nfmt(), detectLang,
+                     applyLang, setLang
   Karte              Leaflet-Setup, Live-Standort-Kartenbutton
   Geometrie-Helfer   Haversine, Zieldestination, Abtastung, Vereinfachung
   OSRM               osrmRoute()
@@ -476,7 +546,7 @@ tests/
   harness.js              Browser-/Server-Setup, Netz-Abfang, Leaflet-Cache
   stub.js                 Synthetische Antworten für OSRM/Open-Meteo/Nominatim
   core.test.js, ui.test.js, return.test.js, elevation.test.js,
-  climb.test.js, tour.test.js, layout.test.js
+  climb.test.js, tour.test.js, layout.test.js, i18n.test.js
   README.md               Ausführliche Test-Dokumentation
 .github/workflows/ci.yml Testlauf bei Push/PR
 ```
