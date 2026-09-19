@@ -23,6 +23,7 @@ kein Bundler, kein Backend. Öffnen (lokal oder gehostet) genügt.
 - [Funktionen im Detail](#funktionen-im-detail)
 - [Der Rundkurs-Algorithmus](#der-rundkurs-algorithmus)
 - [Der Höhenmeter-Wunsch](#der-höhenmeter-wunsch)
+- [Das Panel als Schublade](#das-panel-als-schublade)
 - [Die Einstiegstour](#die-einstiegstour)
 - [Sprachen](#sprachen)
 - [Der Rückweg („Roundtrip But Later")](#der-rückweg-roundtrip-but-later)
@@ -122,10 +123,11 @@ npm test
 - **Hell/Dunkel-Thema**: automatisch (Systemeinstellung) oder manuell,
   inklusive angepasster Kartenkacheln per CSS-Filter.
 - **Responsives Layout**: Panel wird auf schmalen Bildschirmen zur
-  ausziehbaren Bottom-Sheet (Wisch-Geste am Griff); Button-Beschriftungen
-  weichen bei wenig Platz Icons, über CSS-Container-Queries gesteuert –
-  nicht über Media Queries, da die verfügbare Breite vom Panel abhängt, nicht
-  vom Viewport.
+  ausziehbaren Bottom-Sheet – von überall auf der Fläche auf- und zuziehbar,
+  und die Karte hält gezeigt, was das Panel sonst verdecken würde (siehe
+  [unten](#das-panel-als-schublade)); Button-Beschriftungen weichen bei wenig
+  Platz Icons, über CSS-Container-Queries gesteuert – nicht über Media
+  Queries, da die verfügbare Breite vom Panel abhängt, nicht vom Viewport.
 
 ## Der Rundkurs-Algorithmus
 
@@ -331,6 +333,56 @@ vier Knopfdrücke 559 m / 988 m / 1039 m / 1192 m mit 31 / 16 / 12 / 13 %
 gemeinsamer Strecke – vorher war es ab dem zweiten Druck jedes Mal derselbe
 335-m-Weg mit 56 % Hinweg-Anteil.
 
+## Das Panel als Schublade
+
+Auf schmalen Bildschirmen (bis 640 px) klebt das Bedienpanel als Bottom-Sheet
+unten. Es sieht aus wie eine Schublade – also verhält es sich auch so.
+
+**Gewischt wird überall.** Nicht nur am Griff und nicht nur an der
+Überschrift: senkrecht wischen klappt das Panel auf und zu, egal ob der Finger
+dabei über einem Knopf, dem Suchfeld, den Varianten-Chips oder dem Höhenprofil
+startet. Das Panel folgt dem Finger, statt nur am Ende umzuspringen, und beim
+Loslassen entscheidet entweder der zurückgelegte Weg (mehr als 56 px) oder das
+Tempo (ein Schnipser ab 0,5 px/ms). Zu wenig von beidem heißt: es bleibt, wie
+es war.
+
+Drei Gesten teilen sich dabei dieselbe Fläche, und jede muss unbeschadet
+durchkommen:
+
+| Geste | Was passiert |
+| --- | --- |
+| Tippen | der Knopf darunter löst aus – erst ab 8 px Bewegung wird daraus ein Wischen, und ein Wischen unterdrückt den folgenden Klick |
+| Senkrecht wischen | die Schublade geht auf oder zu |
+| Senkrecht wischen über langem Inhalt | zuerst scrollt der Inhalt; erst am Anschlag übernimmt die Schublade |
+
+Damit der Browser nicht dazwischenfunkt, liegt auf dem Panel
+`touch-action:none` – er darf aus der Geste weder ein Scrollen noch ein Zoomen
+machen. Das Scrollen des Panel-Inhalts übernimmt darum der Code selbst; vorher
+war es auf dem Handy (`touch-action:pan-x`) gar nicht möglich.
+
+**Die Karte zeigt, was das Panel übrig lässt.** Ein offenes Panel verdeckt gut
+zwei Drittel des Bildschirms – eine Strecke, die brav in der Bildmitte
+zentriert wird, liegt dann zur Hälfte dahinter. Alles, was die App ins Bild
+holt (Rundkurs, Pin, Hin- und Rückweg zusammen), rechnet deshalb nur mit dem
+freien Rest und zentriert dort: bei offener Schublade im schmalen Streifen
+darüber, bei geschlossener in der fast ganzen Karte, auf großen Bildschirmen
+neben oder unter der Panel-Karte. Welche Kante dem Panel zugeschlagen wird,
+entscheidet die größere Restfläche; ein Siebtel der Karte bleibt in jedem Fall
+übrig, und im schmalen Streifen schrumpft auch der Rand ringsum mit.
+
+Ändert sich die Höhe des Panels, rutscht der Ausschnitt nach (ein
+`ResizeObserver` am Panel). Beim Auf- und Zuklappen wird dabei neu eingepasst:
+der gewonnene Platz gehört der Strecke, der verlorene darf sie nicht
+verschlucken. Bei allen anderen Höhenänderungen – das Höhenprofil kommt dazu,
+die Statuszeile wird zweizeilig – rückt die Karte nur, wenn sonst wirklich
+etwas hinter dem Panel läge; ein Sprung ohne Grund wäre schlimmer als ein Stück
+Rand zu viel.
+
+In jedem Fall gilt: **wer die Karte selbst geschoben oder gezoomt hat, behält
+seinen Ausschnitt.** Ab dann rührt ihn kein Auf- und Zuklappen mehr an, bis die
+App wieder etwas Neues zu zeigen hat – eine neue Strecke, einen neuen
+Startpunkt.
+
 ## Die Einstiegstour
 
 Beim allerersten Öffnen legt sich ein Dunkel über die Seite, in dem genau ein
@@ -464,7 +516,9 @@ gegliedert (per Kommentar-Überschriften `================= … ================
   State              Route/Varianten/Höhenprofil/Live-Standort-Zustand
   Sprachen (i18n)    LANGS, Wörterbücher STR, t()/tn()/nfmt(), detectLang,
                      applyLang, setLang
-  Karte              Leaflet-Setup, Live-Standort-Kartenbutton
+  Karte              Leaflet-Setup, Live-Standort-Kartenbutton,
+                     sichtbarer Ausschnitt neben dem Panel (panelInsets,
+                     fitPadding, applyFocus)
   Geometrie-Helfer   Haversine, Zieldestination, Abtastung, Vereinfachung
   OSRM               osrmRoute()
   Gelände-Scan       scanTerrain, elevAt, estimateClimb, climbPenalty
@@ -480,7 +534,8 @@ gegliedert (per Kommentar-Überschriften `================= … ================
   Einstellungen      laden/speichern (localStorage)
   Erscheinungsbild   Theme anwenden, Leaflet-Ebenen nachziehen
   Einstiegstour      Spotlight-Overlay, Schritte, Einzelhinweise
-  DOM-Verdrahtung    Event-Handler, Panel ein-/ausklappen, Deep-Link laden
+  DOM-Verdrahtung    Event-Handler, Panel ein-/ausklappen und wischen,
+                     Deep-Link laden
 ```
 
 ## Daten & Speicherung
@@ -525,7 +580,7 @@ Last für die freien Dienste. `LIVE=1` schaltet auf die echten Dienste um.
 | Suite | Prüft |
 | --- | --- |
 | `core` | Rechenkern: Link-Kodierung, Linien-Vereinfachung, Abtastung, Höhen-Statistik samt Glättung, Doppelstrecken- und Rundheits-Metrik, Anzeigeformate |
-| `ui` | Ablauf: Route erzeugen, Varianten im Hintergrund, Höhenprofil samt Zeiger, Teilen-Link, Navi-Link, Speichern/Export/Import, Thema, Panel, Fahrrad, unroutbarer Start |
+| `ui` | Ablauf: Route erzeugen, Varianten im Hintergrund, Höhenprofil samt Zeiger, Teilen-Link, Navi-Link, Speichern/Export/Import, Thema, Panel (Klappen, Wischen über Knöpfen und Feldern, Scrollen des Inhalts, Kartenausschnitt neben dem Panel), Fahrrad, unroutbarer Start |
 | `return` | Aufzeichnung samt Filtern, Wiederherstellung nach dem Neuladen, Maß für gemeinsame Strecke, Rückweg-Suche und zweiter Vorschlag |
 | `elevation` | Verhalten, wenn der Höhen-Dienst Fehler liefert, hängt oder verspätet antwortet |
 | `climb` | Höhenmeter-Wunsch: Raster-Interpolation, Schätzung gegen eine schiefe Ebene, Strafe im Score, eine einzige Scan-Anfrage samt Cache, Knopf und Popover, Wirkung auf die Suchrichtung |

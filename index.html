@@ -76,6 +76,10 @@
     transition:max-height .26s ease, opacity .18s ease, margin-bottom .26s ease;
   }
   .panel.collapsed #panelBody{max-height:0; opacity:0; margin-bottom:-10px;}
+  /* Während das Panel am Finger hängt, gibt es keinen Übergang: die Höhe kommt
+     aus der Geste, eine Animation liefe ihr nur hinterher. */
+  .panel.dragging, .panel.dragging #panelBody, .panel.dragging .chev{transition:none;}
+  .panel.dragging{user-select:none; -webkit-user-select:none;}
 
   .seg{display:flex; border:1px solid var(--border); border-radius:9px; overflow:hidden; flex:1;}
   .seg button{
@@ -342,7 +346,9 @@
     .panel{
       top:auto; bottom:0; left:0; width:100vw; max-width:100vw; border-radius:16px 16px 0 0;
       padding-top:6px; padding-bottom:max(14px, env(safe-area-inset-bottom));
-      touch-action:pan-x;
+      /* Senkrechte Gesten gehören der Schublade, nicht dem Browser: das Auf-
+         und Zuziehen und das Scrollen des Inhalts macht der Code selbst. */
+      touch-action:none;
     }
     .panel #panelBody{max-height:58vh; overflow-y:auto;}
     /* Griff zum Auf- und Zuziehen */
@@ -1247,6 +1253,130 @@ map.on("click", e => {
   if (!busy) setStart(e.latlng, true);
 });
 
+/* ---------- Was die Karte zeigen soll ----------
+   Das Panel liegt über der Karte – auf dem Handy als Schublade unten, sonst
+   als Karte oben links. Was es verdeckt, ist kein Platz zum Zeigen. Alles,
+   was die App ins Bild holt (Strecke, Pin, Hin- und Rückweg), rechnet deshalb
+   nur mit dem freien Rest. So liegt die Strecke auch bei offenem Panel mittig
+   im sichtbaren Streifen darüber und nicht zur Hälfte darunter.
+
+   `mapFocus` merkt sich dabei, was gerade gilt; `focusFresh` sagt, ob die
+   Karte noch so steht, wie die App sie gestellt hat. Wer selbst geschoben oder
+   gezoomt hat, bekommt seinen Ausschnitt nicht mehr von hinten weggezogen. */
+let mapFocus = null;        // {bounds} oder {latlng, zoom}
+let focusFresh = false;     // Karte steht noch so, wie wir sie gestellt haben
+let refitUntil = 0;         // bis dahin sind Kartenbewegungen unsere eigenen
+
+map.on("dragstart", () => { focusFresh = false; });
+// Leaflet meldet den Zoom erst im nächsten Bild – auch den eigenen. Deshalb
+// zählt hier nicht ein Schalter, sondern ein kurzes Zeitfenster.
+map.on("zoomstart", () => { if (performance.now() > refitUntil) focusFresh = false; });
+
+/* Wie viele Pixel das Panel an jeder Kante wegnimmt. Es deckt immer eine Ecke
+   ab; welche Kante man ihm zuschlägt, entscheidet die größere Restfläche –
+   bei der Schublade unten ist das die Unterkante, bei der Karte oben links im
+   eingeklappten Zustand die Oberkante und im ausgeklappten die linke. */
+function panelInsets() {
+  const size = map.getSize();
+  const none = { top: 0, right: 0, bottom: 0, left: 0 };
+  const r = panelEl.getBoundingClientRect();
+  if (!r.width || !r.height) return none;
+  if (r.top >= size.y || r.bottom <= 0 || r.left >= size.x || r.right <= 0) return none;
+  const gap = 10;
+  const cands = [
+    { ...none, left:   r.right + gap },
+    { ...none, right:  size.x - r.left + gap },
+    { ...none, top:    r.bottom + gap },
+    { ...none, bottom: size.y - r.top + gap }
+  ];
+  const free = c => (size.x - c.left - c.right) * (size.y - c.top - c.bottom);
+  const best = cands.reduce((a, b) => free(b) > free(a) ? b : a);
+  // Ein Streifen muss übrig bleiben, sonst gäbe es nichts mehr zu zeigen:
+  // ein Siebtel der Karte behält sie in jedem Fall.
+  const keep = .85;
+  return { top: Math.min(best.top, size.y * keep), bottom: Math.min(best.bottom, size.y * keep),
+           left: Math.min(best.left, size.x * keep), right: Math.min(best.right, size.x * keep) };
+}
+
+/* Ränder für fitBounds: das Panel plus etwas Luft ringsum. Im schmalen
+   Streifen über der offenen Schublade wäre der übliche Rand die halbe
+   Anzeige – dort fällt er entsprechend kleiner aus. */
+function fitPadding(extra = 40) {
+  const ins = panelInsets(), size = map.getSize();
+  const air = free => Math.max(6, Math.min(extra, Math.max(40, free) * .12));
+  const x = air(size.x - ins.left - ins.right), y = air(size.y - ins.top - ins.bottom);
+  return { paddingTopLeft: [ins.left + x, ins.top + y],
+           paddingBottomRight: [ins.right + x, ins.bottom + y] };
+}
+
+/* Mitte des freien Ausschnitts: der Punkt soll dort landen, nicht in der
+   Bildmitte – die liegt bei offenem Panel hinter dem Panel. */
+function focusCenter(latlng, zoom) {
+  const ins = panelInsets();
+  const off = L.point((ins.left - ins.right) / 2, (ins.top - ins.bottom) / 2);
+  if (!off.x && !off.y) return latlng;
+  return map.unproject(map.project(latlng, zoom).subtract(off), zoom);
+}
+
+/* Ist schon alles frei zu sehen? Dann bleibt die Karte, wo sie ist. */
+function focusVisible() {
+  if (!mapFocus) return true;
+  const ins = panelInsets(), size = map.getSize(), m = 8;
+  const inside = p => p.x >= ins.left + m && p.x <= size.x - ins.right - m &&
+                      p.y >= ins.top + m && p.y <= size.y - ins.bottom - m;
+  if (mapFocus.bounds) {
+    const b = mapFocus.bounds;
+    return inside(map.latLngToContainerPoint(b.getNorthWest())) &&
+           inside(map.latLngToContainerPoint(b.getSouthEast()));
+  }
+  return inside(map.latLngToContainerPoint(mapFocus.latlng));
+}
+
+function applyFocus(opts = {}) {
+  if (!mapFocus) return;
+  if (!opts.force && focusVisible()) return;
+  const animate = opts.animate !== false;
+  refitUntil = performance.now() + 800;
+  if (mapFocus.bounds) map.fitBounds(mapFocus.bounds, { ...fitPadding(), animate });
+  else {
+    const z = mapFocus.zoom || map.getZoom();
+    map.setView(focusCenter(mapFocus.latlng, z), z, { animate });
+  }
+  focusFresh = true;
+}
+
+/* Strecke (oder mehrere Linien) ins Bild holen */
+function focusBounds(bounds, opts = {}) {
+  mapFocus = { bounds };
+  applyFocus({ force: true, ...opts });
+}
+
+/* Einen Punkt ins Bild holen – oder ihn sich nur merken (`hold`), wenn die
+   Karte gerade nicht springen soll, etwa beim Klick auf die Karte. */
+function focusPoint(latlng, zoom, opts = {}) {
+  mapFocus = { latlng, zoom };
+  if (opts.hold) { focusFresh = true; return; }
+  applyFocus({ force: true, ...opts });
+}
+
+/* Ändert das Panel seine Höhe, rutscht der Ausschnitt nach – sofern die Karte
+   noch unverschoben ist, also niemandem sein eigener Ausschnitt weggezogen
+   wird. Beim Auf- und Zuklappen wird dabei neu eingepasst (`force`): der
+   gewonnene Platz gehört der Strecke, der verlorene darf sie nicht verdecken.
+   Bei allem anderen – Höhenprofil kommt dazu, Statuszeile wird zweizeilig –
+   rückt die Karte nur, wenn sonst wirklich etwas dahinter läge. */
+let refitTimer = null, refitForce = false;
+function scheduleRefit(force) {
+  refitForce = refitForce || !!force;
+  clearTimeout(refitTimer);
+  refitTimer = setTimeout(() => {
+    if (!focusFresh || sheet) return;   // nicht mitten in einer Wischgeste
+    const hard = refitForce;
+    refitForce = false;
+    applyFocus({ animate: true, force: hard });
+  }, 140);
+}
+
 /* Aktuelle Themenfarbe (hell/dunkel) für Leaflet-Layer, die kein CSS lesen */
 const cssVar = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
@@ -1869,7 +1999,10 @@ function setStart(latlng, pan, label) {
   if (startMarker) startMarker.remove();
   startMarker = L.marker(latlng, { title: label || t("marker.start") }).addTo(map)
     .bindPopup(label || t("marker.startPopup")).openPopup();
-  if (pan) map.setView(latlng, Math.max(map.getZoom(), 14));
+  // Der Pin gehört ins Freie: beim Setzen dorthin, beim Klick auf die Karte
+  // bleibt die Karte stehen – gemerkt wird er trotzdem, damit er beim
+  // Aufklappen des Panels nicht dahinter verschwindet.
+  focusPoint(latlng, pan ? Math.max(map.getZoom(), 14) : map.getZoom(), { hold: !pan });
   setStatusLive(() => t("status.startSet"));
 }
 
@@ -1894,7 +2027,7 @@ function drawRoute(route, opts = {}) {
   });
   drawGhosts();
   renderVariantChips();
-  if (opts.fit !== false) map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
+  if (opts.fit !== false) focusBounds(routeLine.getBounds());
   lastRoute = route;
   shareBtn.disabled = false; variantBtn.disabled = false; saveBtn.disabled = false;
   if (opts.elevation !== false) loadElevation(route);
@@ -3224,7 +3357,7 @@ async function findReturn() {
     // Hin- und Rückweg gehören zusammen: beide ins Bild holen
     const bounds = routeLine.getBounds();
     if (trackLine) bounds.extend(trackLine.getBounds());
-    map.fitBounds(bounds, { padding: [40, 40] });
+    focusBounds(bounds);
     variantBtn.disabled = true;                  // Würfeln gehört zum Rundkurs, nicht zum Rückweg
     showReturnStatus(res.cand, res.base, res.fresh);
   } catch (e) {
@@ -3445,22 +3578,148 @@ $("shLink").onclick = () => { shareBg.style.display = "none"; copyShareLink(); }
 $("shGpx").onclick = () => { shareBg.style.display = "none"; exportGPX(); };
 
 /* ---------- Panel ein- und ausklappen ---------- */
-const panelEl = $("panel");
+const panelEl = $("panel"), panelBodyEl = $("panelBody");
 function togglePanel(force) {
   const next = force === undefined ? !panelEl.classList.contains("collapsed") : force;
   panelEl.classList.toggle("collapsed", next);
+  scheduleRefit(true);        // der Kartenausschnitt folgt der neuen Höhe
 }
 $("panelToggle").onclick = () => togglePanel();
 $("grabber").onclick = () => togglePanel();
-/* Wischen am Griff: runter = zu, hoch = auf */
-let dragY = null;
-$("grabber").addEventListener("pointerdown", e => { dragY = e.clientY; });
-$("grabber").addEventListener("pointerup", e => {
-  if (dragY === null) return;
-  const dy = e.clientY - dragY;
-  dragY = null;
-  if (Math.abs(dy) > 24) togglePanel(dy > 0);
+
+/* ---------- Wischen: die ganze Schublade folgt dem Finger ----------
+   Auf dem Handy ist das Panel eine Schublade, und eine Schublade zieht man
+   irgendwo an, nicht nur am Griff. Gewischt wird deshalb über der ganzen
+   Fläche – auch über Knöpfen, Eingabefeldern und dem Höhenprofil.
+
+   Zwei Gesten teilen sich dieselbe Fläche: senkrecht wischen bewegt die
+   Schublade, und wo der Inhalt selbst scrollen kann (langes Panel, kleines
+   Display), scrollt zuerst er – bis er am Anschlag ist, dann übernimmt wieder
+   die Schublade. Welche der beiden es wird, steht nach den ersten Pixeln fest;
+   vorher wird nur gemessen, damit ein Tippen ein Tippen bleibt.
+
+   Weil `touch-action:none` den Browser aus beiden Gesten heraushält, scrollt
+   dieser Code den Inhalt selbst. Bewegung und Ende hängen am Dokument, nicht
+   am Panel: der Finger darf beim Zuziehen über den Kartenrand hinauslaufen. */
+const sheetMQ = window.matchMedia("(max-width:640px)");
+const SHEET_GRAB = 8;      // ab so vielen Pixeln steht die Richtung fest
+const SHEET_SNAP = 56;     // ab hier klappt es um
+const SHEET_FLICK = .5;    // px/ms – ein kurzer Schnipser reicht auch ohne Weg
+
+let sheet = null;          // laufende Geste
+let sheetMoved = false;    // gewischt, also gilt der folgende Klick nicht
+
+/* Der nächste Behälter, der in diese Richtung noch scrollen kann */
+function sheetScroller(target, dy) {
+  for (let el = target; el && el !== panelEl; el = el.parentElement) {
+    if (!(el instanceof Element)) break;
+    const over = getComputedStyle(el).overflowY;
+    if (over !== "auto" && over !== "scroll") continue;
+    const room = dy < 0 ? el.scrollHeight - el.clientHeight - el.scrollTop : el.scrollTop;
+    if (room > 1) return el;
+  }
+  return null;
+}
+
+/* Wie hoch der Inhalt offen ist. Eingeklappt steht das nur im Stylesheet –
+   also kurz ohne `collapsed` messen. Sichtbar wird das nicht: gemessen wird
+   zwischen zwei Bildern, und währenddessen läuft kein Übergang. */
+function bodyOpenHeight() {
+  const collapsed = panelEl.classList.contains("collapsed");
+  if (collapsed) panelEl.classList.remove("collapsed");
+  const h = panelBodyEl.getBoundingClientRect().height;
+  if (collapsed) panelEl.classList.add("collapsed");
+  return h;
+}
+
+/* Ab hier hängt die Schublade am Finger – egal ob von Anfang an oder erst,
+   seit der Inhalt am Anschlag ist. */
+function sheetStartDrag(y) {
+  sheet.mode = "drag";
+  sheet.anchor = y;
+  panelEl.classList.add("dragging");     // erst den Übergang aus, dann messen
+  sheet.open = !panelEl.classList.contains("collapsed");
+  sheet.base = bodyOpenHeight();
+  elevHoverEnd();                        // der Zeiger im Höhenprofil gehört nicht zum Wischen
+}
+
+function sheetDrawHeight(h) {
+  panelBodyEl.style.maxHeight = h + "px";
+  panelBodyEl.style.opacity = sheet.base ? Math.min(1, h / sheet.base * 1.6) : 1;
+  panelBodyEl.style.marginBottom = "0px";
+}
+
+function sheetRelease(collapse) {
+  panelEl.classList.remove("dragging");
+  panelBodyEl.style.maxHeight = panelBodyEl.style.opacity = panelBodyEl.style.marginBottom = "";
+  togglePanel(collapse);
+}
+
+panelEl.addEventListener("pointerdown", e => {
+  if (sheet || !sheetMQ.matches || e.button > 0) return;
+  sheetMoved = false;
+  sheet = { id: e.pointerId, x0: e.clientX, y0: e.clientY, y: e.clientY,
+            t: e.timeStamp, v: 0, target: e.target, mode: null };
 });
+
+document.addEventListener("pointermove", e => {
+  if (!sheet || e.pointerId !== sheet.id) return;
+  const step = e.clientY - sheet.y;
+  const dt = Math.max(1, e.timeStamp - sheet.t);
+  sheet.v = step / dt * .7 + sheet.v * .3;   // geglättetes Tempo für den Schnipser
+  sheet.y = e.clientY; sheet.t = e.timeStamp;
+
+  if (!sheet.mode) {
+    // Erst bei deutlich senkrechter Bewegung übernimmt die Geste
+    const dy = e.clientY - sheet.y0;
+    if (Math.abs(dy) < SHEET_GRAB || Math.abs(dy) <= Math.abs(e.clientX - sheet.x0)) return;
+    sheetMoved = true;
+    sheet.scroller = sheetScroller(sheet.target, dy);
+    if (sheet.scroller) sheet.mode = "scroll";
+    else sheetStartDrag(e.clientY);
+  }
+  if (sheet.mode === "scroll") {
+    const box = sheet.scroller;
+    const room = step < 0 ? box.scrollHeight - box.clientHeight - box.scrollTop : box.scrollTop;
+    // Am Anschlag geht die Geste an die Schublade über – wie beim Vorbild
+    if (room > 0) box.scrollTop -= step;
+    else sheetStartDrag(e.clientY);
+    return;
+  }
+  e.preventDefault();                        // keine Textauswahl beim Ziehen
+  const h = (sheet.open ? sheet.base : 0) - (e.clientY - sheet.anchor);
+  sheetDrawHeight(Math.max(0, Math.min(sheet.base, h)));
+}, { passive: false });
+
+function sheetEnd(e) {
+  if (!sheet || e.pointerId !== sheet.id) return;
+  const s = sheet;
+  sheet = null;
+  if (s.mode !== "drag") return;
+  const dy = e.clientY - s.anchor;
+  // Wer vor dem Loslassen kurz innehält, hat nicht geschnipst
+  const v = e.timeStamp - s.t > 120 ? 0 : s.v;
+  // Weit genug gezogen oder kurz geschnipst: umklappen. Sonst zurück.
+  const decided = Math.abs(v) > SHEET_FLICK ? v > 0
+                : Math.abs(dy) > SHEET_SNAP ? dy > 0
+                : !s.open;
+  sheetRelease(decided);
+  // Der unterdrückte Klick kommt gleich nach dem Loslassen – oder gar nicht.
+  setTimeout(() => { sheetMoved = false; }, 400);
+}
+document.addEventListener("pointerup", sheetEnd);
+document.addEventListener("pointercancel", sheetEnd);
+
+/* Nach dem Wischen soll der Knopf unter dem Finger nicht auslösen */
+panelEl.addEventListener("click", e => {
+  if (!sheetMoved) return;
+  sheetMoved = false;
+  e.stopPropagation();
+  e.preventDefault();
+}, true);
+
+/* Höhe des Panels geändert? Dann den Ausschnitt nachziehen. */
+new ResizeObserver(scheduleRefit).observe(panelEl);
 
 /* ---------- Gespeicherte Routen ---------- */
 function routesBgOpen() { return $("routesBg").style.display === "flex"; }
@@ -3477,7 +3736,10 @@ $("importFile").onchange = e => {
 
 /* ---------- Höhenprofil: Zeiger ---------- */
 const elevChart = $("elevChart");
-elevChart.addEventListener("pointermove", e => { e.preventDefault(); elevHover(e.clientX); });
+elevChart.addEventListener("pointermove", e => {
+  if (sheet && sheet.mode) return;        // gerade wird gewischt, nicht gezeigt
+  e.preventDefault(); elevHover(e.clientX);
+});
 elevChart.addEventListener("pointerdown", e => { e.preventDefault(); elevHover(e.clientX); });
 elevChart.addEventListener("pointerleave", elevHoverEnd);
 elevChart.addEventListener("pointercancel", elevHoverEnd);
@@ -3485,6 +3747,7 @@ let resizeTimer = null;
 window.addEventListener("resize", () => {
   clearTimeout(resizeTimer);
   resizeTimer = setTimeout(() => { if (elevData) renderElevation(elevData.raw); }, 200);
+  scheduleRefit();
 });
 
 /* ---------- Thema ---------- */

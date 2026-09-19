@@ -193,7 +193,116 @@ module.exports = async function run(env) {
   await page.click("#grabber");
   await page.waitForTimeout(450);
   t.ok("Panel klappt wieder auf", (await page.locator("#panelBody").boundingBox()).height > 100);
+
+  /* Die Seite wurde für den Thementest neu geladen – für die Karte braucht es
+     wieder eine Strecke. */
+  await page.evaluate(s => { map.setView(s, 15); setStart(L.latLng(s[0], s[1]), false); }, START);
+  await page.fill("#distInput", "3");
+  await page.click("#genBtn");
+  await page.waitForFunction(() => !busy && lastRoute, { timeout: long });
+  await page.waitForFunction(() => !searching, { timeout: long });
+  await page.waitForTimeout(400);
+
+  /* --- Wischen: überall auf dem Panel, nicht nur am Griff --- */
+  const collapsed = () => page.evaluate(() => document.getElementById("panel").classList.contains("collapsed"));
+  const swipe = async (sel, dy, steps = 6) => {
+    const b = await page.locator(sel).boundingBox();
+    const x = b.x + b.width / 2, y = b.y + b.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    for (let i = 1; i <= steps; i++) await page.mouse.move(x, y + dy * i / steps);
+    await page.mouse.up();
+    await page.waitForTimeout(500);
+  };
+
+  const beforeSwipe = await page.evaluate(() => ({ dist: lastRoute.distance, busy, searching }));
+  await swipe("#genBtn", 180);
+  const afterSwipe = await page.evaluate(() => ({ dist: lastRoute.distance, busy, searching }));
+  t.ok("Wischen über einem Knopf klappt das Panel zu", await collapsed());
+  t.ok("Der gewischte Knopf löst nicht aus",
+       !afterSwipe.busy && !afterSwipe.searching && afterSwipe.dist === beforeSwipe.dist);
+
+  await swipe("#status", -180);
+  t.ok("Wischen über der Statuszeile klappt es wieder auf", !await collapsed());
+
+  await swipe("#searchInput", 180);
+  t.ok("Wischen über dem Eingabefeld klappt zu", await collapsed());
+  await swipe("#panelToggle", -180);
+  t.ok("Wischen über der Überschrift klappt auf", !await collapsed());
+
+  /* Ein kurzes Zupfen ist kein Wischen: langsam und wenig weit bleibt, wie es war */
+  const nudge = await page.locator("#genBtn").boundingBox();
+  await page.mouse.move(nudge.x + nudge.width / 2, nudge.y + nudge.height / 2);
+  await page.mouse.down();
+  for (let i = 1; i <= 5; i++) {
+    await page.mouse.move(nudge.x + nudge.width / 2, nudge.y + nudge.height / 2 + i * 4);
+    await page.waitForTimeout(40);
+  }
+  await page.mouse.up();
+  await page.waitForTimeout(400);
+  t.ok("Kurzes Zupfen lässt das Panel offen", !await collapsed());
+
+  /* Scrollt der Inhalt, gehört ihm die Geste zuerst */
+  const scrollable = await page.evaluate(() => {
+    const b = document.getElementById("panelBody");
+    b.scrollTop = 0;
+    return b.scrollHeight > b.clientHeight + 8;
+  });
+  if (scrollable) {
+    await swipe("#panelBody", -120);
+    const scrolled = await page.evaluate(() => document.getElementById("panelBody").scrollTop);
+    const stillOpen = !await collapsed();
+    t.ok("Langer Inhalt scrollt, statt zuzuklappen", scrolled > 20 && stillOpen, `${Math.round(scrolled)} px`);
+    await page.evaluate(() => { document.getElementById("panelBody").scrollTop = 0; });
+    // ... aber am oberen Anschlag gehört sie wieder der Schublade
+    await swipe("#panelBody", 160);
+    t.ok("Am Anschlag klappt dieselbe Stelle zu", await collapsed());
+    await swipe("#status", -160);
+    t.ok("Und wieder auf", !await collapsed());
+  }
+
+  /* --- Kartenausschnitt: die Strecke bleibt neben dem Panel sichtbar --- */
+  const strip = async () => page.evaluate(() => {
+    const b = routeLine.getBounds();
+    const nw = map.latLngToContainerPoint(b.getNorthWest());
+    const se = map.latLngToContainerPoint(b.getSouthEast());
+    const p = document.getElementById("panel").getBoundingClientRect();
+    return { top: nw.y, bottom: se.y, left: nw.x, right: se.x,
+             panelTop: p.top, h: map.getSize().y, w: map.getSize().x };
+  });
+
+  await page.evaluate(() => drawRoute(lastRoute));
+  await page.waitForTimeout(600);
+  const openView = await strip();
+  const mid = v => (v.top + v.bottom) / 2;
+  t.ok("Strecke liegt bei offenem Panel vollständig darüber",
+       openView.top > 0 && openView.bottom < openView.panelTop,
+       `Strecke ${Math.round(openView.top)}–${Math.round(openView.bottom)} px, Panel ab ${Math.round(openView.panelTop)} px`);
+  t.ok("Strecke sitzt mittig im sichtbaren Streifen",
+       Math.abs(mid(openView) - openView.panelTop / 2) < 30,
+       `Mitte ${Math.round(mid(openView))} px, Streifenmitte ${Math.round(openView.panelTop / 2)} px`);
+
+  /* Zuklappen gibt Platz frei – die Strecke rückt nach und wird größer */
+  await page.click("#panelToggle");
+  await page.waitForTimeout(900);
+  const closedView = await strip();
+  t.ok("Zugeklappt sitzt die Strecke mittig in der ganzen Karte",
+       Math.abs(mid(closedView) - closedView.panelTop / 2) < 40 && mid(closedView) > mid(openView) + 80,
+       `Mitte ${Math.round(mid(closedView))} px statt ${Math.round(mid(openView))} px bei offenem Panel`);
+  t.ok("Und nutzt den gewonnenen Platz",
+       closedView.bottom - closedView.top > (openView.bottom - openView.top) * 1.5,
+       `${Math.round(closedView.bottom - closedView.top)} px statt ${Math.round(openView.bottom - openView.top)} px`);
+
+  /* Und beim Aufklappen rutscht sie von selbst in den sichtbaren Streifen */
+  await page.click("#panelToggle");
+  await page.waitForTimeout(900);
+  const reopened = await strip();
+  t.ok("Beim Aufklappen rückt die Strecke nach oben",
+       reopened.top > 0 && reopened.bottom < reopened.panelTop,
+       `Strecke ${Math.round(reopened.top)}–${Math.round(reopened.bottom)} px, Panel ab ${Math.round(reopened.panelTop)} px`);
+
   await page.setViewportSize({ width: 1000, height: 780 });
+  await page.waitForTimeout(300);
 
   /* --- Fahrrad --- */
   const before = env.requests.length;

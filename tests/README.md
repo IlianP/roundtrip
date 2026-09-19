@@ -64,7 +64,7 @@ damit vollständig durch, nur die Browser-Schnittstelle davor ist ersetzt.
 | Suite | Prüft |
 | --- | --- |
 | `core` | Rechenkern: Link-Kodierung, Linien-Vereinfachung, Abtastung, Höhen-Statistik samt Glättung, Doppelstrecken- und Rundheits-Metrik, Anzeigeformate |
-| `ui` | Ablauf: Route erzeugen, Varianten im Hintergrund, Höhenprofil samt Zeiger, Teilen-Link (in zweitem Tab geöffnet), Navi-Link, Speichern/Export/Import, Thema, Panel, Fahrrad, unroutbarer Start |
+| `ui` | Ablauf: Route erzeugen, Varianten im Hintergrund, Höhenprofil samt Zeiger, Teilen-Link (in zweitem Tab geöffnet), Navi-Link, Speichern/Export/Import, Thema, Panel (Klappen, Wischen über Knöpfen und Feldern, Scrollen des Inhalts, Kartenausschnitt neben dem Panel), Fahrrad, unroutbarer Start |
 | `return` | Rückweg: Aufzeichnung samt Filtern, Speicherung über ein Neuladen hinweg, Maß für gemeinsame Strecke, Rückweg-Suche (auch der zweite Vorschlag), Speichern, Sonderfälle |
 | `elevation` | Verhalten, wenn der Höhen-Dienst Fehler liefert, hängt oder verspätet antwortet |
 | `climb` | Höhenmeter-Wunsch: Interpolation im Gelände-Raster, Schätzung gegen eine schiefe Ebene (nachrechenbar), Strafe im Score, eine einzige Scan-Anfrage samt Cache, Knopf und Popover, und dass „bergig“ tatsächlich eine andere Richtung findet als „flach“ |
