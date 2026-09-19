@@ -10,7 +10,7 @@
     --bg:#ffffff; --fg:#1a1d21; --muted:#6b7280; --accent:#1d6ef5; --accent-fg:#fff;
     --ok:#16a34a; --warn:#d97706; --err:#dc2626; --border:#e5e7eb; --card-shadow:0 4px 18px rgba(0,0,0,.16);
     --surface-2:#f1f3f6; --toast-bg:#1a1d21; --toast-fg:#ffffff; --overlay:rgba(0,0,0,.4);
-    --grid:#e5e7eb; --ghost:#8b93a1; --track:#d9600f; --tile-filter:none;
+    --grid:#e5e7eb; --ghost:#8b93a1; --track:#d9600f; --climb:#4d7a45; --tile-filter:none;
     --radius:14px;
   }
   /* Dunkles Thema: eigene Stufen, keine bloße Umkehrung.
@@ -20,7 +20,7 @@
       --bg:#171a1f; --fg:#e8ebef; --muted:#98a1ae; --accent:#5b9dff; --accent-fg:#0d1117;
       --ok:#4ade80; --warn:#fbbf24; --err:#f87171; --border:#2b313a; --card-shadow:0 4px 22px rgba(0,0,0,.5);
       --surface-2:#232830; --toast-bg:#2b313a; --toast-fg:#e8ebef; --overlay:rgba(0,0,0,.55);
-      --grid:#2b313a; --ghost:#7b8493; --track:#f5a04a;
+      --grid:#2b313a; --ghost:#7b8493; --track:#f5a04a; --climb:#8fbb7e;
       --tile-filter:brightness(.72) saturate(.72) contrast(1.06) hue-rotate(185deg) invert(.92);
     }
   }
@@ -28,7 +28,7 @@
     --bg:#171a1f; --fg:#e8ebef; --muted:#98a1ae; --accent:#5b9dff; --accent-fg:#0d1117;
     --ok:#4ade80; --warn:#fbbf24; --err:#f87171; --border:#2b313a; --card-shadow:0 4px 22px rgba(0,0,0,.5);
     --surface-2:#232830; --toast-bg:#2b313a; --toast-fg:#e8ebef; --overlay:rgba(0,0,0,.55);
-    --grid:#2b313a; --ghost:#7b8493; --track:#f5a04a;
+    --grid:#2b313a; --ghost:#7b8493; --track:#f5a04a; --climb:#8fbb7e;
     --tile-filter:brightness(.72) saturate(.72) contrast(1.06) hue-rotate(185deg) invert(.92);
   }
   *{box-sizing:border-box; margin:0; padding:0;}
@@ -93,6 +93,8 @@
   .btn:disabled{opacity:.55; cursor:default;}
   .btn-row{display:flex; gap:8px;}
   .btn-row .btn{flex:1;}
+  /* Standort und Höhenwunsch sind Beiwerk – die Breite gehört „Route erzeugen“ */
+  #locateBtn, #climbBtn{flex:0 0 auto;}
 
   /* ---------- Enger Platz: Beschriftung weg, Symbol bleibt ----------
      Die Dreierreihe braucht rund 360 px Inhaltsbreite für vollen Text.
@@ -102,7 +104,35 @@
     .btn.iconic .lbl, .seg button .lbl{display:none;}
     .btn.iconic{font-size:18px; padding-left:8px; padding-right:8px;}
     .seg button{font-size:18px; padding:8px 0;}
-    #locateBtn{flex:0 0 auto;}          /* „Route erzeugen“ bekommt den Platz */
+  }
+
+  /* ---------- Höhenmeter-Wunsch ---------- */
+  #climbBtn.set{
+    background:color-mix(in srgb, var(--accent) 14%, var(--bg));
+    box-shadow:inset 0 0 0 1px var(--accent); font-weight:600;
+  }
+  /* Angedockt statt Vollbild: eine Dreifach-Wahl braucht kein Abbrechen/Speichern.
+     position:fixed, damit dieselbe Rechnung oben im Panel wie unten im Bottom-Sheet stimmt. */
+  #climbPop{
+    position:fixed; z-index:1200; display:none; flex-direction:column; gap:2px; width:246px;
+    background:var(--bg); border:1px solid var(--border); border-radius:12px; padding:10px;
+    box-shadow:var(--card-shadow);
+  }
+  #climbPop.show{display:flex;}
+  #climbPop h3{font-size:12px; color:var(--muted); font-weight:600; margin-bottom:2px;}
+  .climbOpt{
+    display:flex; gap:9px; align-items:flex-start; text-align:left; width:100%;
+    border:1px solid transparent; background:none; border-radius:9px; padding:7px 8px;
+    cursor:pointer; font:inherit; font-size:14px; color:var(--fg);
+  }
+  .climbOpt:hover{background:var(--surface-2);}
+  .climbOpt.on{border-color:var(--accent); background:color-mix(in srgb, var(--accent) 10%, var(--bg));}
+  .climbOpt .ico{font-size:16px; line-height:1.3;}
+  .climbOpt b{font-weight:600;}
+  .climbOpt small{display:block; color:var(--muted); font-size:11.5px; line-height:1.35;}
+  #climbPop .hint{
+    font-size:11.5px; color:var(--muted); line-height:1.4;
+    border-top:1px solid var(--border); padding-top:7px; margin-top:4px;
   }
 
   #status{font-size:13px; color:var(--muted); min-height:18px; line-height:1.45;}
@@ -127,6 +157,7 @@
     display:flex; align-items:center; gap:5px;
   }
   .vchip .dot{width:8px; height:8px; border-radius:50%; background:var(--ghost); flex:none;}
+  .vchip .hm{color:var(--climb); font-weight:600;}
   .vchip:hover{background:var(--surface-2);}
   .vchip.active{border-color:var(--accent); color:var(--fg); font-weight:600;}
   .vchip.active .dot{background:var(--accent);}
@@ -204,6 +235,38 @@
     #shareBg{align-items:flex-end;}
     #shareSheet{width:100vw; max-width:100vw; border-radius:16px 16px 0 0; padding-bottom:max(18px, env(safe-area-inset-bottom));}
   }
+
+  /* ---------- Einstiegstour ----------
+     Das Loch im Dunkel entsteht ohne zweite Ebene: ein Kasten mit einem
+     Schlagschatten, der größer ist als der Bildschirm. Der Kasten selbst
+     bleibt durchsichtig, alles ringsum liegt im Schatten. */
+  #tour{position:fixed; inset:0; z-index:2500; display:none;}
+  #tour.show{display:block;}
+  #tourHole{
+    position:fixed; border-radius:11px; border:2px solid var(--accent);
+    box-shadow:0 0 0 9999px var(--overlay); pointer-events:none;
+    transition:top .26s ease, left .26s ease, width .26s ease, height .26s ease;
+  }
+  #tourBubble{
+    position:fixed; width:290px; max-width:calc(100vw - 24px); background:var(--bg);
+    border:2px solid var(--accent); border-radius:var(--radius); padding:14px;
+    box-shadow:var(--card-shadow); display:flex; flex-direction:column; gap:8px;
+    transition:top .26s ease, left .26s ease;
+  }
+  #tourBubble h3{font-size:15px;}
+  #tourBubble p{font-size:13px; line-height:1.5; color:var(--muted);}
+  #tourBubble .btn{padding:7px 12px; font-size:14px; flex:0 0 auto;}
+  .tour-nav{display:flex; align-items:center; gap:8px; margin-top:2px;}
+  #tourDots{display:flex; gap:5px; margin-right:auto;}
+  #tourDots i{width:6px; height:6px; border-radius:50%; background:var(--border); display:block;}
+  #tourDots i.on{background:var(--accent);}
+  #tourSkip{
+    /* 56 px lassen die Zoom-Bedienung rechts oben frei, statt sie zu verdecken */
+    position:fixed; top:max(12px, env(safe-area-inset-top)); right:56px; border:none; cursor:pointer;
+    background:var(--toast-bg); color:var(--toast-fg); border-radius:999px; padding:6px 14px;
+    font-size:13px; font-family:inherit;
+  }
+  @media (prefers-reduced-motion:reduce){ #tourHole, #tourBubble{transition:none;} }
 
   /* ---------- Toast ---------- */
   #toast{
@@ -302,7 +365,7 @@
       <div id="searchResults"></div>
     </div>
 
-    <div class="row">
+    <div class="row" id="tripRow">
       <div style="flex:1">
         <label class="small" for="distInput">Distanz (km)</label>
         <input type="number" id="distInput" value="5" min="0.5" max="300" step="0.5">
@@ -319,6 +382,8 @@
 
     <div class="btn-row">
       <button class="btn iconic" id="locateBtn" title="Eigenen Standort verwenden" aria-label="Eigenen Standort verwenden">📍<span class="lbl"> Standort</span></button>
+      <button class="btn iconic" id="climbBtn" title="Höhenmeter-Wunsch" aria-label="Höhenmeter-Wunsch"
+              aria-haspopup="dialog" aria-expanded="false">🏔️<span class="lbl"> Höhe</span></button>
       <button class="btn primary" id="genBtn">Route erzeugen</button>
     </div>
     <div class="btn-row">
@@ -354,6 +419,24 @@
   <div id="status">Startpunkt wählen: 📍-Button oder Karte antippen.</div>
 </div>
 
+<div id="climbPop" role="dialog" aria-label="Höhenmeter-Wunsch">
+  <h3>Höhenmeter</h3>
+  <button class="climbOpt" type="button" data-wish="flat">
+    <span class="ico" aria-hidden="true">🏞️</span>
+    <span><b>Flach</b><small>Sucht die flachste Richtung der Umgebung.</small></span>
+  </button>
+  <button class="climbOpt" type="button" data-wish="any">
+    <span class="ico" aria-hidden="true">🏔️</span>
+    <span><b>Egal</b><small>Wie bisher: Distanz und Rundheit entscheiden.</small></span>
+  </button>
+  <button class="climbOpt" type="button" data-wish="hill">
+    <span class="ico" aria-hidden="true">⛰️</span>
+    <span><b>Bergig</b><small>Sucht bewusst die Anstiege der Umgebung.</small></span>
+  </button>
+  <span class="hint">Gilt ab der nächsten Route und fürs 🎲 Würfeln. Wo das Gelände keine Wahl
+  hergibt, sagt die Statuszeile das.</span>
+</div>
+
 <div id="modalBg">
   <div id="modal">
     <h2>Einstellungen</h2>
@@ -386,6 +469,10 @@
         <option value="light">Hell</option>
         <option value="dark">Dunkel</option>
       </select>
+    </div>
+    <div class="field">
+      <label class="small">Einführung</label>
+      <button class="btn" id="tourAgainBtn" type="button">🧭 Kurze Einführung noch einmal zeigen</button>
     </div>
     <div class="btn-row">
       <button class="btn" id="modalCancel">Abbrechen</button>
@@ -420,6 +507,20 @@
 </div>
 
 <div id="toast"></div>
+
+<div id="tour" aria-hidden="true">
+  <div id="tourHole"></div>
+  <div id="tourBubble" role="dialog" aria-modal="true" aria-labelledby="tourTitle">
+    <h3 id="tourTitle"></h3>
+    <p id="tourText"></p>
+    <div class="tour-nav">
+      <span id="tourDots" aria-hidden="true"></span>
+      <button class="btn" id="tourBack" type="button">Zurück</button>
+      <button class="btn primary" id="tourNext" type="button">Weiter</button>
+    </div>
+  </div>
+  <button id="tourSkip" type="button">Überspringen</button>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
@@ -461,6 +562,16 @@ const ELEV_SAMPLES = 100;     // Maximum pro Anfrage bei Open-Meteo
 const ELEV_SMOOTH_M = 150;    // Glättungsfenster gegen das Rauschen des Höhenmodells
 const ELEV_NOISE_M = 2;       // Hysterese für Auf-/Abstieg (nach der Glättung)
 const ELEV_TIMEOUT_MS = 12000; // danach Abbruch, ein zweiter Versuch folgt
+
+/* Gelände-Vorabscan für den Höhenmeter-Wunsch */
+const CLIMB_RINGS = [0.5, 1.0, 1.6, 2.2];  // Ringe als Vielfache des Schleifenradius
+const CLIMB_DIRS = 24;                     // 4 × 24 + 1 = 97 Punkte ≤ ELEV_SAMPLES
+const CLIMB_PROBE_PTS = 24;                // Eckpunkte der gedachten Schleife je Richtung
+const CLIMB_STEP_M = 120;                  // Abtastung eines Kandidaten im Raster
+const CLIMB_WEIGHT = 0.15;   // Gewicht im Score: stark genug, um unter gleich guten
+                             // Kandidaten zu entscheiden, zu schwach, um eine zipfelfreie
+                             // Route gegen eine zipfelige einzutauschen.
+const CLIMB_FLAT_SPAN = 4;   // hm/km: darunter gibt die Gegend schlicht keine Wahl her
 
 /* Varianten */
 const MAX_VARIANTS = 3;
@@ -504,6 +615,7 @@ let suppressMapClick = false; // Klick auf eine Ghost-Linie setzt keinen Startpu
 /* Höhenprofil-State */
 let elevSeq = 0;              // laufende Nummer, damit späte Antworten nichts überschreiben
 let elevMarker = null;
+let terrain = null;           // Gelände-Vorabscan um den Startpunkt (siehe unten)
 
 /* Aufzeichnung & Rückweg */
 let track = emptyTrack();     // {points:[[lat,lon,t]], distance, recording, startedAt, mode}
@@ -813,6 +925,132 @@ async function osrmRoute(points, profile) {
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+/* ================= Gelände-Vorabscan (Höhenmeter-Wunsch) =================
+   Höhen sind in Roundtrip kein Teil des Routings: OSRM liefert die Straße, die
+   Höhe kommt hinterher aus einer zweiten Anfrage an Open-Meteo. Ein Wunsch nach
+   mehr oder weniger Höhenmetern müsste also für jeden Kandidaten eine eigene
+   Höhen-Anfrage stellen – bei bis zu REQUEST_BUDGET Routing-Anfragen pro
+   Erzeugung wäre das dem freien Dienst gegenüber unanständig und würde jede
+   Runde spürbar verlangsamen.
+
+   Der Ausweg: Die 100 Punkte einer Höhen-Anfrage müssen nicht auf einer Route
+   liegen. Eine einzige Anfrage tastet stattdessen das Gelände um den Start ab
+   (CLIMB_RINGS Ringe × CLIMB_DIRS Richtungen). Daraus lässt sich jeder Kandidat
+   rein rechnerisch schätzen – ohne eine weitere Anfrage.
+
+   Die Schätzung ist bewusst grob (90-m-Raster, interpoliert) und wird nie als
+   Zahl angezeigt; sie ordnet Kandidaten nur untereinander. Angezeigt werden
+   ausschließlich die echten Höhenmeter aus dem Höhenprofil der fertigen Route. */
+
+const wantsClimb = () => settings.climbWish === "flat" || settings.climbWish === "hill";
+
+/* Eine Anfrage, ein Raster. Gecacht über Start und Radius, damit „🎲 Würfeln"
+   und jede weitere Variante denselben Scan benutzen. */
+async function scanTerrain(startLL, radiusM) {
+  const key = `${startLL.lat.toFixed(3)},${startLL.lng.toFixed(3)},${Math.round(radiusM / 250)}`;
+  if (terrain && terrain.key === key) return terrain;
+
+  const lat0 = startLL.lat, lon0 = startLL.lng;
+  const pts = [[lat0, lon0]];
+  for (const f of CLIMB_RINGS)
+    for (let k = 0; k < CLIMB_DIRS; k++)
+      pts.push(destPoint(lat0, lon0, k * 360 / CLIMB_DIRS, radiusM * f));
+
+  const data = await fetchElev(`${ELEV_API}?latitude=${pts.map(p => p[0].toFixed(5)).join(",")}` +
+                               `&longitude=${pts.map(p => p[1].toFixed(5)).join(",")}`);
+  if (!data || !Array.isArray(data.elevation)) throw new Error("keine Höhendaten");
+
+  // Lokale Meter-Ebene: In dieser Größenordnung reicht die einfache Näherung,
+  // und sie spart pro Abtastpunkt eine Haversine-Rechnung.
+  const mPerLat = 110574, mPerLon = 111320 * Math.cos(toRad(lat0));
+  const samples = [];
+  pts.forEach((p, i) => {
+    const e = data.elevation[i];
+    if (e === null || e === undefined || isNaN(e)) return;
+    samples.push({ x: (p[1] - lon0) * mPerLon, y: (p[0] - lat0) * mPerLat, e });
+  });
+  if (samples.length < CLIMB_DIRS) throw new Error("keine Höhendaten");
+
+  const terr = { key, lat0, lon0, mPerLat, mPerLon, samples, radiusM };
+
+  /* Wie bergig wäre eine Schleife in Richtung b? Die Frage lässt sich ohne
+     Routing beantworten: die gedachte Kreis-Schleife durchs Raster schicken.
+     Das liefert die Reihenfolge der Suchrichtungen und zugleich die Spanne,
+     an der ein echter Kandidat später gemessen wird. */
+  terr.dirs = [];
+  for (let k = 0; k < CLIMB_DIRS; k++) {
+    const b = k * 360 / CLIMB_DIRS;
+    terr.dirs.push(estimateClimb(loopProbe(startLL, radiusM, b), terr) ?? 0);
+  }
+  terr.lo = Math.min(...terr.dirs);
+  terr.hi = Math.max(...terr.dirs);
+  terr.flat = terr.hi - terr.lo < CLIMB_FLAT_SPAN;   // Gegend gibt keine Wahl her
+  return (terrain = terr);
+}
+
+/* Grobe Schleifen-Geometrie in einer Richtung – dieselbe Kreisidee wie
+   circleWaypoints, nur ohne Router und mit mehr Stützpunkten. */
+function loopProbe(startLL, radiusM, bearing) {
+  const center = destPoint(startLL.lat, startLL.lng, bearing, radiusM);
+  const startAngle = (bearing + 180) % 360;
+  const pts = [];
+  for (let k = 0; k <= CLIMB_PROBE_PTS; k++)
+    pts.push(destPoint(center[0], center[1], startAngle + k * 360 / CLIMB_PROBE_PTS, radiusM));
+  return pts;
+}
+
+/* Höhe an einer beliebigen Stelle: inverse Distanzgewichtung über die vier
+   nächsten Rasterpunkte. Glatt genug, dass die Summe der Anstiege nicht vom
+   Rauschen lebt, und lokal genug, dass ein Hügel nicht wegmittelt. */
+function elevAt(terr, lat, lon) {
+  const x = (lon - terr.lon0) * terr.mPerLon, y = (lat - terr.lat0) * terr.mPerLat;
+  const near = [];
+  for (const s of terr.samples) {
+    const d2 = (s.x - x) ** 2 + (s.y - y) ** 2;
+    if (near.length < 4) { near.push({ d2, e: s.e }); near.sort((a, b) => a.d2 - b.d2); }
+    else if (d2 < near[3].d2) { near[3] = { d2, e: s.e }; near.sort((a, b) => a.d2 - b.d2); }
+  }
+  let sw = 0, se = 0;
+  for (const n of near) {
+    if (n.d2 < 1) return n.e;                       // praktisch auf einem Rasterpunkt
+    const w = 1 / n.d2;
+    sw += w; se += w * n.e;
+  }
+  return sw ? se / sw : 0;
+}
+
+/* Geschätzte Höhenmeter je Kilometer eines Linienzugs – reine Rechnung im
+   Raster, keine Anfrage. Keine Hysterese nötig: das interpolierte Feld ist
+   schon glatt, anders als die rohen Messwerte im Höhenprofil. */
+function estimateClimb(coords, terr) {
+  if (!terr || !coords || coords.length < 2) return null;
+  const { pts, total } = routeSamples(coords, CLIMB_STEP_M);
+  if (!total) return 0;
+  let asc = 0, prev = null;
+  for (const p of pts) {
+    const e = elevAt(terr, p.lat, p.lon);
+    if (prev !== null && e > prev) asc += e - prev;
+    prev = e;
+  }
+  return asc / (total / 1000);
+}
+
+/* Strafe für einen Kandidaten, der nicht zum Wunsch passt: 0 für den
+   flachsten (bzw. bergigsten) Vorschlag, den die Gegend hergibt, CLIMB_WEIGHT
+   für den gegenteiligen. Gibt das Gelände nichts her, kostet nichts. */
+function climbPenalty(hmPerKm, terr, wish) {
+  if (!terr || terr.flat || hmPerKm == null) return 0;
+  if (wish !== "flat" && wish !== "hill") return 0;
+  const t = Math.min(1, Math.max(0, (hmPerKm - terr.lo) / (terr.hi - terr.lo)));
+  return CLIMB_WEIGHT * (wish === "flat" ? t : 1 - t);
+}
+
+/* Geschätzte Höhenmeter einer gedachten Schleife in dieser Richtung */
+function dirClimbAt(terr, bearing) {
+  const k = Math.round(((bearing % 360) + 360) % 360 / (360 / CLIMB_DIRS)) % CLIMB_DIRS;
+  return terr.dirs[k];
+}
+
 /* ================= Roundtrip-Algorithmus =================
    Idee: Zwischenpunkte auf einem Kreis (Umfang ≈ Zieldistanz) platzieren,
    reale Route rechnen, Radius proportional zur Abweichung skalieren.
@@ -829,7 +1067,8 @@ function scoreOf(cand, tol) {
   if (cand.dev > tol)     devPen += (Math.min(cand.dev, softCap) - tol) * 0.5;
   if (cand.dev > softCap) devPen += (cand.dev - softCap) * 5;
   const roundPen = Math.max(0, 0.6 - (cand.q || 0)) * 0.5; // unrunde Formen bestrafen
-  return cand.overlap + roundPen + devPen + (cand.fastPen || 0) + (cand.spike || 0);
+  return cand.overlap + roundPen + devPen + (cand.fastPen || 0) + (cand.spike || 0) +
+         (cand.climbPen || 0);
 }
 
 /* Dynamische Wegpunktzahl je Variante. avgSnap = mittlere Entfernung der
@@ -850,7 +1089,7 @@ function waypointPlan(profile, avgSnap) {
 async function searchSeed(ctx, s) {
   const { startLL, targetM, profile, tol } = ctx;
   const seed = lastSeed = {
-    bearing: (ctx.baseBearing + s * 360 / MAX_SEEDS) % 360,
+    bearing: ctx.bearings[s % ctx.bearings.length],
     dir: s % 2 ? -1 : 1
   };
   let radius = targetM / (2 * Math.PI);
@@ -888,7 +1127,10 @@ async function searchSeed(ctx, s) {
     const fastPen = (profile === "car" && settings.avoidMotorway) ? route.fastFrac * 0.6 : 0;
     const pinch = findWorstPinch(route.coords);
     const spike = pinch ? pinch.saving / route.distance : 0;
-    const cand = { ...route, dev, overlap, q, fastPen, spike, waypoints: wps, seedIdx: s };
+    const climb = estimateClimb(route.coords, ctx.terrain);
+    const climbPen = climbPenalty(climb, ctx.terrain, ctx.wish);
+    const cand = { ...route, dev, overlap, q, fastPen, spike, climb, climbPen,
+                   waypoints: wps, seedIdx: s };
     if (!best || scoreOf(cand, tol) < scoreOf(best, tol)) best = cand;
 
     // Zipfel-Chirurgie: Wegpunkt auslassen, der eine Stichfahrt erzwingt —
@@ -930,7 +1172,23 @@ async function makeRoundTrip(startLL, targetM, profile, onProgress, cancelled) {
   // Richtungen gleichmäßig über 360° verteilen (statt rein zufällig) —
   // so liegt garantiert eine Variante z. B. ganz abseits eines Flusses.
   const ctx = { startLL, targetM, profile, tol, onProgress, cancelled,
-                requests: 0, plan: null, baseBearing: Math.random() * 360 };
+                requests: 0, plan: null, baseBearing: Math.random() * 360,
+                wish: settings.climbWish, terrain: null, terrainFailed: false };
+  ctx.bearings = [];
+  for (let s = 0; s < MAX_SEEDS; s++) ctx.bearings.push((ctx.baseBearing + s * 360 / MAX_SEEDS) % 360);
+
+  // Höhenmeter-Wunsch: eine Anfrage fürs Gelände, danach die Suchrichtungen
+  // danach sortieren. Die Abdeckung über 360° bleibt – nur die Reihenfolge
+  // ändert sich, und die erste gefundene Route ist die angezeigte.
+  if (wantsClimb()) {
+    onProgress("Gelände wird geprüft …");
+    try {
+      ctx.terrain = await scanTerrain(startLL, targetM / (2 * Math.PI));
+      const sign = ctx.wish === "flat" ? 1 : -1;
+      ctx.bearings.sort((a, b) => sign * (dirClimbAt(ctx.terrain, a) - dirClimbAt(ctx.terrain, b)));
+    } catch { ctx.terrainFailed = true; }             // Wunsch verfällt, Suche läuft normal weiter
+    if (cancelled()) return null;
+  }
 
   let best = null, s = 0;
   for (; s < MAX_SEEDS; s++) {
@@ -938,7 +1196,10 @@ async function makeRoundTrip(startLL, targetM, profile, onProgress, cancelled) {
     const r = await searchSeed(ctx, s);
     if (cancelled()) return null;
     if (r && (!best || scoreOf(r.cand, tol) < scoreOf(best, tol))) best = r.cand;
-    if (r && r.cand.dev <= softCap) { s++; break; }   // gut genug – nicht länger warten lassen
+    // Gut genug – nicht länger warten lassen. Mit Höhen-Wunsch gilt das nur,
+    // wenn die Route auch dazu passt: die Schätzung kann danebenliegen, dann
+    // bekommt die zweitbeste Richtung noch eine Chance.
+    if (r && r.cand.dev <= softCap && (r.cand.climbPen || 0) <= CLIMB_WEIGHT * 0.6) { s++; break; }
   }
   if (!best) return null;
   return { cand: await polish(best, startLL, targetM, profile, tol), ctx, nextSeed: s };
@@ -981,8 +1242,9 @@ async function polish(cand, startLL, targetM, profile, tol) {
   if (cand.polished) return cand;
   let best = (await repairPinches(cand, targetM, profile, tol)) || cand;
   best = (await closeLoopEarly(best, startLL, targetM, profile, tol)) || best;
-  // Geometrie hat sich geändert → Höhenprofil neu holen, Schwerpunkt neu rechnen
-  return { ...best, polished: true, elev: null, _ctr: null };
+  // Geometrie hat sich geändert → Höhenprofil neu holen, Schwerpunkt und
+  // gemerkte Höhenmeter verwerfen
+  return { ...best, polished: true, elev: null, _ctr: null, _asc: null };
 }
 
 /* "Schleife früher schließen": Ist die beste Route zu lang, suche einen Punkt
@@ -1081,13 +1343,22 @@ function renderVariantChips() {
   const box = $("variants");
   box.innerHTML = "";
   if (variants.length < 2 && !(searching && variants.length)) { box.classList.remove("show"); return; }
+  const pick = bestClimbVariant();
   variants.forEach((v, i) => {
     const b = document.createElement("button");
     b.className = "vchip" + (i === activeVariant ? " active" : "");
     b.type = "button";
     b.innerHTML = '<span class="dot"></span>';
     b.appendChild(document.createTextNode(`Variante ${i + 1} · ${fmtDist(v.distance)}`));
-    b.title = `Abweichung ${((v.dev || 0) * 100).toFixed(1)} % · doppelt ${((v.overlap || 0) * 100).toFixed(1)} %`;
+    const asc = climbOf(v);
+    if (asc != null) {
+      const hm = document.createElement("span");
+      hm.className = "hm";
+      hm.textContent = ` · ↑ ${asc} hm` + (i === pick ? ` ${CLIMB_UI[routeCtx.wish].icon}` : "");
+      b.appendChild(hm);
+    }
+    b.title = `Abweichung ${((v.dev || 0) * 100).toFixed(1)} % · doppelt ${((v.overlap || 0) * 100).toFixed(1)} %` +
+              (i === pick ? ` · von allen Vorschlägen am ehesten ${CLIMB_UI[routeCtx.wish].name}` : "");
     b.onclick = () => activateVariant(i);
     box.appendChild(b);
   });
@@ -1099,6 +1370,22 @@ function renderVariantChips() {
     box.appendChild(p);
   }
   box.classList.add("show");
+}
+
+/* Welcher Vorschlag trifft den Höhen-Wunsch wirklich? Die Suche steuert nur
+   über die grobe Rasterschätzung; sobald alle Varianten ihr echtes Profil
+   haben, weiß die App es genau – und markiert den passenden Chip, statt die
+   angezeigte Route unter der Hand auszutauschen. */
+function bestClimbVariant() {
+  const w = routeCtx.wish;
+  if ((w !== "flat" && w !== "hill") || variants.length < 2) return -1;
+  let pick = -1, bestAsc = null;
+  for (let i = 0; i < variants.length; i++) {
+    const asc = climbOf(variants[i]);
+    if (asc == null) return -1;            // erst markieren, wenn alle Profile da sind
+    if (bestAsc === null || (w === "flat" ? asc < bestAsc : asc > bestAsc)) { bestAsc = asc; pick = i; }
+  }
+  return pick;
 }
 
 /* Nicht-aktive Varianten sind roh; sie werden erst beim Auswählen nachbearbeitet. */
@@ -1129,10 +1416,23 @@ function showRouteStatus(route) {
                    (route.trimmed ? " · Schleife vorzeitig geschlossen" : "");
   const vNote = variants.length > 1 ? ` · Variante ${activeVariant + 1}/${variants.length}` : "";
   const note = cls === "warn" ? " – Toleranz nicht erreicht, beste gefundene Route" : "";
+  const asc = climbOf(route);
+  const hmNote = asc != null ? ` · ↑ ${asc} hm` : "";
   setStatus(
     `<span class="${cls}">${fmtDist(route.distance)}</span>${target} · ca. ${fmtDur(route.duration)}` +
-    ` · doppelt: <span class="${ovCls}">${ovPct} %</span>${trimNote}${vNote}${note}`
+    ` · doppelt: <span class="${ovCls}">${ovPct} %</span>${hmNote}${trimNote}${vNote}${note}${climbNote()}`
   );
+}
+
+/* Was der Höhen-Wunsch bei DIESER Route bewirkt hat – nicht, was gerade
+   eingestellt ist. Und wenn die Gegend nichts hergab, steht das auch da. */
+function climbNote() {
+  const w = routeCtx.wish;
+  if (w !== "flat" && w !== "hill") return "";
+  const label = w === "flat" ? "flach" : "bergig";
+  if (routeCtx.terrainFailed) return ` · ${label} gewünscht (Gelände nicht abrufbar)`;
+  if (routeCtx.terrainFlat) return ` · ${label} gewünscht – hier gibt das Gelände kaum Unterschiede her`;
+  return ` · <b>${label} gewünscht</b>`;
 }
 
 function fmtDist(m) {
@@ -1167,12 +1467,15 @@ async function generate() {
   genBtn.disabled = true; variantBtn.disabled = true; $("backBtn").disabled = true;
   genBtn.innerHTML = '<span class="spinner"></span> Berechne …';
   clearRoute();
-  routeCtx = { targetM: km * 1000, profile: mode, tol: settings.tolerance / 100, km };
+  routeCtx = { targetM: km * 1000, profile: mode, tol: settings.tolerance / 100, km,
+               wish: settings.climbWish };
 
   try {
     const res = await makeRoundTrip(start, km * 1000, mode, msg => { if (!cancelled()) setStatus(msg); }, cancelled);
     if (cancelled()) return;
     if (!res) throw new Error("Keine Route gefunden – anderer Startpunkt oder kürzere Distanz?");
+    routeCtx.terrainFailed = res.ctx.terrainFailed;
+    routeCtx.terrainFlat = !!(res.ctx.terrain && res.ctx.terrain.flat);
     variants = [res.cand]; activeVariant = 0;
     drawRoute(res.cand);
     showRouteStatus(res.cand);
@@ -1194,10 +1497,13 @@ function searchMoreVariants(ctx, fromSeed) {
   if (fromSeed >= MAX_SEEDS || ctx.requests >= REQUEST_BUDGET) return;
   searching = true;
   renderVariantChips();
+  const token = genToken;
   collectVariants(ctx, fromSeed, cand => {
     variants.push(cand);
+    queueElev(cand, token);       // Höhenmeter für den Chip, im Hintergrund
     drawGhosts();
     renderVariantChips();
+    if (variants.length === 2) tourMark("variants");   // jetzt gibt es etwas zu erklären
     if (!busy && lastRoute) showRouteStatus(lastRoute);   // „Variante 1/2“ nachziehen
     return variants.length;
   }).catch(() => {}).finally(() => {
@@ -1326,6 +1632,52 @@ async function fetchElev(url) {
   }
 }
 
+/* Das Höhenprofil einer Route holen, ohne die Anzeige anzufassen – so kommen
+   auch die Varianten im Hintergrund zu ihren Höhenmetern. */
+async function fetchRouteElev(route) {
+  const { pts } = sampleAlong(route.coords, ELEV_SAMPLES);
+  const lat = pts.map(p => p.lat.toFixed(5)).join(",");
+  const lon = pts.map(p => p.lon.toFixed(5)).join(",");
+  const data = await fetchElev(`${ELEV_API}?latitude=${lat}&longitude=${lon}`);
+  if (!data || !Array.isArray(data.elevation)) throw new Error("keine Daten");
+  const elev = [];
+  let lastE = null;
+  pts.forEach((p, i) => {
+    let e = data.elevation[i];
+    if (e === null || e === undefined || isNaN(e)) e = lastE;   // Lücken überbrücken
+    if (e === null || e === undefined) return;
+    lastE = e;
+    elev.push({ d: p.pos, e, lat: +p.lat.toFixed(5), lon: +p.lon.toFixed(5) });
+  });
+  if (elev.length < 2) throw new Error("keine Daten");
+  return elev;
+}
+
+/* Echte Höhenmeter einer Route – nur aus geladenen Profildaten, nie geschätzt. */
+function climbOf(route) {
+  if (!route) return null;
+  if (route._asc != null) return route._asc;
+  if (!route.elev || route.elev.length < 2) return null;
+  return (route._asc = Math.round(elevStats(smoothElev(route.elev)).asc));
+}
+
+/* Varianten holen ihr Profil im Hintergrund nach (höchstens MAX_VARIANTS
+   Anfragen, nacheinander): Das bringt die Höhenmeter auf die Chips und macht
+   das Umschalten später ohne Ladebalken. */
+let elevQueue = Promise.resolve();
+function queueElev(route, token) {
+  if (!route || route.elev || route._elevBusy) return;
+  route._elevBusy = true;
+  elevQueue = elevQueue.then(async () => {
+    if (token !== genToken) return;
+    try {
+      route.elev = await fetchRouteElev(route);
+      if (token === genToken) renderVariantChips();
+    } catch { /* Höhen sind Beiwerk – die Route steht auch ohne */ }
+    finally { route._elevBusy = false; }
+  });
+}
+
 async function loadElevation(route) {
   const seq = ++elevSeq;
   if (route.elev && route.elev.length > 1) { renderElevation(route.elev); return; }
@@ -1337,24 +1689,11 @@ async function loadElevation(route) {
   $("elevRange").textContent = "";
   $("elevChart").innerHTML = "";
   try {
-    const { pts } = sampleAlong(route.coords, ELEV_SAMPLES);
-    const lat = pts.map(p => p.lat.toFixed(5)).join(",");
-    const lon = pts.map(p => p.lon.toFixed(5)).join(",");
-    const data = await fetchElev(`${ELEV_API}?latitude=${lat}&longitude=${lon}`);
+    const elev = await fetchRouteElev(route);
     if (seq !== elevSeq) return;                       // inzwischen andere Route
-    if (!data || !Array.isArray(data.elevation)) throw new Error("keine Daten");
-    const elev = [];
-    let lastE = null;
-    pts.forEach((p, i) => {
-      let e = data.elevation[i];
-      if (e === null || e === undefined || isNaN(e)) e = lastE;   // Lücken überbrücken
-      if (e === null || e === undefined) return;
-      lastE = e;
-      elev.push({ d: p.pos, e, lat: +p.lat.toFixed(5), lon: +p.lon.toFixed(5) });
-    });
-    if (elev.length < 2) throw new Error("keine Daten");
     route.elev = elev;                                  // an der Route merken (auch fürs Speichern)
     renderElevation(elev);
+    renderVariantChips();                               // Höhenmeter auf dem eigenen Chip nachziehen
   } catch (e) {
     if (seq !== elevSeq) return;
     // Nicht spurlos verschwinden lassen – der Dienst ist nur gerade nicht erreichbar
@@ -1409,6 +1748,7 @@ function renderElevation(raw) {
 
   elevData = { elev, raw, total, lo, hi, x0, x1, y0, y1 };
   $("elevTip").textContent = "";
+  tourMark("elev");                                   // beim ersten Mal kurz erklären
 }
 
 /* Fahren mit Maus oder Finger über das Profil: Fadenkreuz, Werte und ein
@@ -2359,8 +2699,9 @@ function loadSettings() {
   try {
     const s = JSON.parse(localStorage.getItem("roundtrip-settings"));
     return { tolerance: s?.tolerance ?? 5, avoidMotorway: s?.avoidMotorway ?? true,
-             returnDetour: s?.returnDetour ?? 60, theme: s?.theme ?? "auto" };
-  } catch { return { tolerance: 5, avoidMotorway: true, returnDetour: 60, theme: "auto" }; }
+             returnDetour: s?.returnDetour ?? 60, theme: s?.theme ?? "auto",
+             climbWish: s?.climbWish ?? "any" };
+  } catch { return { tolerance: 5, avoidMotorway: true, returnDetour: 60, theme: "auto", climbWish: "any" }; }
 }
 function saveSettings() {
   try { localStorage.setItem("roundtrip-settings", JSON.stringify(settings)); } catch { /* privater Modus */ }
@@ -2416,6 +2757,65 @@ genBtn.onclick = () => generate();
 variantBtn.onclick = () => generate();
 saveBtn.onclick = saveCurrentRoute;
 locateBtn.onclick = locate;
+
+/* ---------- Höhenmeter-Wunsch ---------- */
+const CLIMB_UI = {
+  any:  { icon: "🏔️", label: "Höhe",   name: "egal" },
+  flat: { icon: "🏞️", label: "Flach",  name: "flach" },
+  hill: { icon: "⛰️", label: "Bergig", name: "bergig" }
+};
+const climbBtn = $("climbBtn"), climbPop = $("climbPop");
+
+/* Der Knopf trägt den Zustand selbst: Ein Wunsch, der nur in einem
+   geschlossenen Fenster steht, ist drei Routen später unerklärlich. */
+function renderClimbBtn() {
+  const ui = CLIMB_UI[settings.climbWish] || CLIMB_UI.any;
+  climbBtn.innerHTML = `${ui.icon}<span class="lbl"> ${ui.label}</span>`;
+  climbBtn.classList.toggle("set", wantsClimb());
+  climbBtn.title = `Höhenmeter-Wunsch: ${ui.name}`;
+  climbBtn.setAttribute("aria-label", `Höhenmeter-Wunsch: ${ui.name}`);
+  climbPop.querySelectorAll(".climbOpt").forEach(o =>
+    o.classList.toggle("on", o.dataset.wish === settings.climbWish));
+}
+
+function openClimbPop() {
+  climbPop.classList.add("show");
+  const r = climbBtn.getBoundingClientRect(), p = climbPop.getBoundingClientRect();
+  const left = Math.min(Math.max(8, r.left + r.width / 2 - p.width / 2), window.innerWidth - p.width - 8);
+  const below = r.bottom + 8;
+  // Unten im Bottom-Sheet ist unterhalb kein Platz – dann klappt es nach oben
+  climbPop.style.left = left + "px";
+  climbPop.style.top = (below + p.height > window.innerHeight - 8 ? r.top - p.height - 8 : below) + "px";
+  climbBtn.setAttribute("aria-expanded", "true");
+  climbPop.querySelector(".climbOpt.on")?.focus();
+}
+function closeClimbPop() {
+  climbPop.classList.remove("show");
+  climbBtn.setAttribute("aria-expanded", "false");
+}
+climbBtn.onclick = e => {
+  e.stopPropagation();
+  climbPop.classList.contains("show") ? closeClimbPop() : openClimbPop();
+};
+climbPop.querySelectorAll(".climbOpt").forEach(opt => {
+  opt.onclick = () => {
+    settings.climbWish = opt.dataset.wish;
+    saveSettings();
+    renderClimbBtn();
+    closeClimbPop();
+    climbBtn.focus();
+    const ui = CLIMB_UI[settings.climbWish];
+    toast(wantsClimb()
+      ? `Höhenmeter: ${ui.name}. Gilt ab der nächsten Route – 🎲 Würfeln sucht neu.`
+      : "Höhenmeter: egal. Distanz und Rundheit entscheiden wieder allein.");
+  };
+});
+document.addEventListener("click", e => {
+  if (climbPop.classList.contains("show") && !climbPop.contains(e.target)) closeClimbPop();
+});
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && climbPop.classList.contains("show")) { closeClimbPop(); climbBtn.focus(); }
+});
 
 /* ---------- Aufzeichnung & Rückweg ---------- */
 $("recBtn").onclick = () => { if (track.recording) stopRecording(); else startRecording(); };
@@ -2508,14 +2908,174 @@ $("modalSave").onclick = () => {
         `Rückweg-Umweg ${settings.returnDetour} %`);
 };
 
+/* ================= Einstiegstour =================
+   Beim ersten Öffnen: fünf kurze Schritte auf das, was da ist – abgedunkelt bis
+   auf den erklärten Bereich. Varianten und Höhenprofil kommen darin bewusst
+   nicht vor: Beim ersten Öffnen gibt es sie noch gar nicht, eine Tour müsste auf
+   leere Stellen zeigen. Die erklärt je ein einzelner Hinweis dann, wenn sie zum
+   ersten Mal auftauchen.
+   Wer über einen geteilten Link kommt, will die Route sehen und keinen Kurs –
+   dort startet nichts von allein; die Einstellungen holen es nach. */
+const TOUR_KEY = "roundtrip-tour";
+const TOUR_VERSION = 1;
+
+const TOUR_STEPS = [
+  { el: "searchWrap", title: "Wo geht es los?",
+    text: "Adresse eingeben, auf die Karte tippen oder den 📍-Knopf für den eigenen Standort. " +
+          "Start und Ziel sind derselbe Punkt – es wird ja eine Runde." },
+  { el: "tripRow", title: "Wie weit, womit?",
+    text: "Wunschdistanz und Verkehrsmittel. Die App sucht eine echte Straßenroute, die möglichst " +
+          "nah an die Distanz herankommt und dabei rund verläuft, statt zweimal durch dieselbe Straße." },
+  { el: "genBtn", title: "Route erzeugen",
+    text: "Der erste Vorschlag steht sofort. Weitere sucht die App danach im Hintergrund – " +
+          "🎲 Würfeln fragt jederzeit nach neuen Richtungen." },
+  { el: "climbBtn", title: "Flach oder bergig?",
+    text: "Hier wünschst du dir mehr oder weniger Höhenmeter. Was eingestellt ist, steht danach " +
+          "im Knopf – und gilt ab der nächsten Route." },
+  { el: "trackBox", title: "Rückweg später",
+    text: "Den Hinweg unterwegs aufzeichnen – und Stunden später findet die App einen Rückweg, " +
+          "der ihn meidet. Die Seite darf dazwischen geschlossen werden." }
+];
+
+/* Einzelne Hinweise für das, was es erst später zu sehen gibt */
+const TOUR_MARKS = {
+  variants: { el: "variants", title: "Mehrere Vorschläge",
+    text: "Jeder Chip ist eine Route in eine andere Richtung; die gestrichelten Linien auf der Karte " +
+          "gehören dazu. Antippen schaltet um." },
+  elev: { el: "elevBox", title: "Das Höhenprofil",
+    text: "Mit Maus oder Finger darüberfahren: Die Karte zeigt mit, wo auf der Strecke du gerade bist." }
+};
+
+function loadTourState() {
+  try {
+    const t = JSON.parse(localStorage.getItem(TOUR_KEY));
+    if (t && t.v === TOUR_VERSION) { t.seen = t.seen || {}; return t; }
+  } catch { /* privater Modus */ }
+  return { v: TOUR_VERSION, done: false, skipped: false, seen: {} };
+}
+function saveTourState() {
+  try { localStorage.setItem(TOUR_KEY, JSON.stringify(tourState)); } catch { /* privater Modus */ }
+}
+
+let tourState = loadTourState();
+let tourSteps = null, tourIdx = 0, tourSingle = false, tourQueue = [];
+let tourQuiet = false;         // geteilter Link: keine Tour, auch keine Einzelhinweise
+
+function tourRun(steps, single) {
+  if (!steps || !steps.length || tourSteps) return;
+  closeClimbPop();
+  togglePanel(false);                       // eingeklappt wäre nichts zu zeigen
+  tourSteps = steps; tourIdx = 0; tourSingle = !!single;
+  tourRender();
+}
+
+function tourRender() {
+  const step = tourSteps && tourSteps[tourIdx];
+  const el = step && $(step.el);
+  if (el && el.scrollIntoView) el.scrollIntoView({ block: "nearest" });
+  const r = el && el.getBoundingClientRect();
+  if (!r || !r.width || !r.height) {        // Element nicht sichtbar → Schritt überspringen
+    if (tourIdx >= tourSteps.length - 1) return tourEnd();
+    tourIdx++; return tourRender();
+  }
+
+  const pad = 6, hole = $("tourHole"), bubble = $("tourBubble");
+  hole.style.left = (r.left - pad) + "px";
+  hole.style.top = (r.top - pad) + "px";
+  hole.style.width = (r.width + pad * 2) + "px";
+  hole.style.height = (r.height + pad * 2) + "px";
+
+  $("tourTitle").textContent = step.title;
+  $("tourText").textContent = step.text;
+  $("tourDots").innerHTML = tourSingle ? "" :
+    tourSteps.map((_, i) => `<i class="${i === tourIdx ? "on" : ""}"></i>`).join("");
+  $("tourBack").style.display = tourIdx > 0 ? "" : "none";
+  $("tourNext").textContent = tourIdx === tourSteps.length - 1
+    ? (tourSingle ? "Alles klar" : "Fertig") : "Weiter";
+  $("tourSkip").style.display = tourSingle ? "none" : "";
+
+  const tour = $("tour");
+  tour.classList.add("show");
+  tour.setAttribute("aria-hidden", "false");
+
+  // Erst anzeigen, dann messen – sonst hat die Sprechblase keine Höhe.
+  const b = bubble.getBoundingClientRect();
+  const below = r.bottom + pad + 10;
+  bubble.style.top = (below + b.height <= window.innerHeight - 10
+    ? below : Math.max(10, r.top - pad - 10 - b.height)) + "px";
+  bubble.style.left = Math.min(Math.max(12, r.left + r.width / 2 - b.width / 2),
+                               window.innerWidth - b.width - 12) + "px";
+  $("tourNext").focus();
+}
+
+function tourNext() {
+  if (!tourSteps) return;
+  if (tourIdx >= tourSteps.length - 1) return tourEnd();
+  tourIdx++; tourRender();
+}
+function tourBack() { if (tourSteps && tourIdx > 0) { tourIdx--; tourRender(); } }
+
+function tourEnd(skipped) {
+  if (!tourSteps) return;
+  const wasTour = !tourSingle;
+  tourSteps = null;
+  $("tour").classList.remove("show");
+  $("tour").setAttribute("aria-hidden", "true");
+  if (wasTour) {
+    tourState.done = true;
+    if (skipped) tourState.skipped = true;
+    saveTourState();
+  }
+  // Was während der Tour aufgelaufen ist, kommt jetzt dran
+  const next = tourQueue.shift();
+  if (next) setTimeout(() => tourMark(next), 400);
+}
+
+/* Ein einzelner Hinweis – höchstens einmal, und nie mitten in der Tour. */
+function tourMark(id) {
+  const m = TOUR_MARKS[id];
+  if (!m || !tourState || tourQuiet || tourState.skipped || tourState.seen[id]) return;
+  if (tourSteps) { if (!tourQueue.includes(id)) tourQueue.push(id); return; }
+  tourState.seen[id] = true;
+  saveTourState();
+  tourRun([m], true);
+}
+
+$("tourNext").onclick = () => tourNext();
+$("tourBack").onclick = () => tourBack();
+$("tourSkip").onclick = () => tourEnd(true);
+$("tourAgainBtn").onclick = () => {
+  modalBg.style.display = "none";
+  tourState.skipped = false;
+  saveTourState();
+  tourRun(TOUR_STEPS);
+};
+$("tour").addEventListener("keydown", e => {
+  if (e.key === "Escape") { e.stopPropagation(); return tourEnd(true); }
+  if (e.key === "ArrowRight") return tourNext();
+  if (e.key === "ArrowLeft") return tourBack();
+  if (e.key !== "Tab") return;
+  // Fokusfalle: Der Rest der Seite ist abgedunkelt und soll auch nicht erreichbar sein
+  const keys = [...$("tour").querySelectorAll("button")].filter(b => b.offsetParent !== null);
+  const i = keys.indexOf(document.activeElement);
+  e.preventDefault();
+  keys[(i + (e.shiftKey ? -1 : 1) + keys.length) % keys.length].focus();
+});
+window.addEventListener("resize", () => { if (tourSteps) tourRender(); });
+
 /* Beim Laden: Thema setzen, geteilten Link öffnen, Live-Standort verfolgen
    (ohne Fehler-Toast). Der erste Fix belegt den Startpunkt vor – aber nur,
    wenn nicht ohnehin eine geteilte Route geladen wurde. */
 applyTheme();
+renderClimbBtn();
 const openedShared = loadFromHash();
 if (openedShared) liveFirstFix = false;
+tourQuiet = !!openedShared;
 restoreTrack(!openedShared);      // Verkehrsmittel der Aufzeichnung nur ohne geteilte Route
 startLiveTracking();
+// Erster Besuch: kurz zeigen, wo was ist – nach einem Moment, damit Karte und
+// Panel stehen und die Tour nicht auf einen wandernden Knopf zeigt.
+if (!tourQuiet && !tourState.done) setTimeout(() => tourRun(TOUR_STEPS), 700);
 </script>
 </body>
 </html>

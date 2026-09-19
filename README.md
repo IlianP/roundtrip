@@ -19,6 +19,8 @@ kein Bundler, kein Backend. Öffnen (lokal oder gehostet) genügt.
 - [Schnellstart](#schnellstart)
 - [Funktionen im Detail](#funktionen-im-detail)
 - [Der Rundkurs-Algorithmus](#der-rundkurs-algorithmus)
+- [Der Höhenmeter-Wunsch](#der-höhenmeter-wunsch)
+- [Die Einstiegstour](#die-einstiegstour)
 - [Der Rückweg („Roundtrip But Later")](#der-rückweg-roundtrip-but-later)
 - [Verwendete Dienste](#verwendete-dienste)
 - [Architektur der `index.html`](#architektur-der-indexhtml)
@@ -83,6 +85,11 @@ npm test
   App im Hintergrund bis zu drei sichtbar unterschiedliche Alternativen in
   anderen Himmelsrichtungen und zeigt sie als gestrichelte „Geister-Linien"
   auf der Karte sowie als Chips im Panel.
+- **Höhenmeter-Wunsch** (🏔️): flach, egal oder bergig. Ein einziger
+  Gelände-Vorabscan ordnet die Suchrichtungen und geht als weicher Term in die
+  Bewertung ein (siehe [unten](#der-höhenmeter-wunsch)). Der Knopf trägt den
+  eingestellten Wunsch als Beschriftung, die Varianten-Chips weisen die
+  tatsächlichen Höhenmeter aus.
 - **Rückweg auf anderem Weg** (siehe [unten](#der-rückweg-roundtrip-but-later)):
   Hinweg aufzeichnen, später einen Rückweg finden lassen, der die
   aufgezeichnete Strecke meidet. Ein weiterer Knopfdruck liefert einen
@@ -101,6 +108,10 @@ npm test
 - **Live-Standort**: dauerhaft blinkender Standortpunkt samt
   Genauigkeitskreis (wie in Google Maps), erkennt veraltete Fixes (grau,
   Blinken aus) und Berechtigungsverweigerung.
+- **Einstiegstour**: Beim allerersten Öffnen fünf kurze Schritte durch die
+  Bedienung – der Rest abgedunkelt, der erklärte Bereich hervorgehoben (siehe
+  [unten](#die-einstiegstour)). Über die Einstellungen jederzeit wieder
+  abrufbar.
 - **Hell/Dunkel-Thema**: automatisch (Systemeinstellung) oder manuell,
   inklusive angepasster Kartenkacheln per CSS-Filter.
 - **Responsives Layout**: Panel wird auf schmalen Bildschirmen zur
@@ -136,6 +147,9 @@ Der Kern der App (siehe die ausführlichen Kommentare in `index.html` ab
      Zipfel verlängern die Strecke, ohne Fläche einzuschließen, und drücken
      `Q` deutlich.
    - **Schnellstraßen-Anteil** (nur Auto, falls „Autobahn vermeiden" aktiv).
+   - **Höhenmeter-Abweichung** (nur bei aktivem [Höhenmeter-Wunsch](#der-höhenmeter-wunsch)):
+     geschätzte Steigung aus dem Gelände-Raster, gemessen an der Spanne, die die
+     Gegend überhaupt hergibt.
    - **Pinch/Spike**: geometrische Erkennung des größten „Zipfel-Halses" –
      zwei Punkte der Route, die räumlich nah, aber entlang der Strecke weit
      auseinander liegen.
@@ -166,6 +180,63 @@ Der Kern der App (siehe die ausführlichen Kommentare in `index.html` ab
 Alle Konstanten des Algorithmus (`MAX_ITER`, `MAX_SEEDS`, `REQUEST_BUDGET`,
 `GOOD_OVERLAP`, `MIN_ROUNDNESS`, `MAX_SNAP_M`, …) stehen gesammelt im
 Konfigurationsblock am Anfang des `<script>`-Teils.
+
+
+## Der Höhenmeter-Wunsch
+
+Wer sich mehr oder weniger Höhenmeter wünscht, stellt das über den 🏔️-Knopf
+neben „Route erzeugen“ ein: **flach**, **egal** oder **bergig**. Die Einstellung
+bleibt gespeichert und steht deshalb im Knopf selbst – ein Wunsch, der nur in
+einem geschlossenen Fenster steht, ist drei Routen später unerklärlich.
+
+Die Schwierigkeit liegt nicht in der Bedienung, sondern in den Daten: **Höhen
+sind kein Teil des Routings.** OSRM liefert die Straße, die Höhe kommt hinterher
+aus einer zweiten Anfrage an Open-Meteo – eine pro fertiger Route. Ein Wunsch
+müsste also jeden Kandidaten einzeln nach seiner Höhe fragen; bei bis zu
+`REQUEST_BUDGET` Routing-Anfragen pro Erzeugung wäre das dem freien Dienst
+gegenüber unanständig und würde jede Runde spürbar verlangsamen.
+
+Der Ausweg: **Die 100 Punkte einer Höhen-Anfrage müssen nicht auf einer Route
+liegen.** Eine einzige Anfrage tastet stattdessen das Gelände um den Startpunkt
+ab – `CLIMB_RINGS` Ringe (0,5 bis 2,2 Schleifenradien) × `CLIMB_DIRS`
+Richtungen, zusammen 97 Punkte. Daraus entsteht ein kleines Höhenfeld, in dem
+sich alles Weitere ohne Netz ausrechnen lässt:
+
+1. **Richtungen sortieren.** Für jede der 24 Richtungen wird eine *gedachte*
+   Schleife (`loopProbe`) durchs Raster geschickt und ihre Steigung geschätzt.
+   Die fünf Suchrichtungen der eigentlichen Suche werden danach geordnet – die
+   Abdeckung über 360° bleibt, nur die Reihenfolge ändert sich. Da die erste
+   brauchbare Route sofort angezeigt wird, entscheidet diese Reihenfolge das
+   Ergebnis am deutlichsten.
+2. **Kandidaten bewerten.** Jede tatsächlich geroutete Strecke läuft über
+   `estimateClimb` durch dasselbe Raster; `climbPenalty` verwandelt das in einen
+   Score-Term zwischen 0 (flachster bzw. bergigster Vorschlag, den die Gegend
+   hergibt) und `CLIMB_WEIGHT`. Das Gewicht ist bewusst klein (0,15): Es soll
+   unter gleich guten Kandidaten entscheiden, aber keine zipfelfreie Route gegen
+   eine zipfelige eintauschen und schon gar nicht die Distanz-Toleranz sprengen.
+3. **Relativ statt absolut.** Feste Schwellen („flach = unter 10 hm/km“) wären in
+   Brandenburg immer erfüllt und in Tirol nie. Der Scan liefert die erreichbare
+   Spanne gleich mit; gewünscht wird das Extrem *dieser Gegend*. Liegen alle
+   Richtungen näher als `CLIMB_FLAT_SPAN` beieinander, kostet der Wunsch nichts
+   mehr und die Statuszeile sagt offen: „hier gibt das Gelände kaum Unterschiede
+   her“.
+
+Die Schätzung aus dem Raster ist grob (90-m-Höhenmodell, interpoliert über die
+vier nächsten Stützpunkte) und wird **nie als Zahl angezeigt** – sie ordnet
+Kandidaten nur untereinander. Angezeigt werden ausschließlich die echten
+Höhenmeter aus dem Höhenprofil der fertigen Route. Deshalb holen sich auch die
+Varianten ihr Profil im Hintergrund nach (höchstens `MAX_VARIANTS` Anfragen,
+nacheinander): Die Chips weisen `↑ 128 hm` aus, und das Umschalten zwischen
+Vorschlägen kommt ohne Ladebalken aus.
+
+Wo grobe Schätzung und echtes Profil auseinanderlaufen, gewinnt das Profil:
+Sobald alle Varianten ihre echten Höhenmeter haben, markiert die App den Chip,
+der den Wunsch tatsächlich am besten trifft (🏞️ bzw. ⛰️) – statt die schon
+angezeigte Route unter der Hand auszutauschen.
+
+Scheitert der Scan (Dienst nicht erreichbar), läuft die Suche unverändert weiter
+und die Statuszeile vermerkt „Gelände nicht abrufbar“. Ein fehlgeschlagener
+Wunsch darf keine Route kosten.
 
 ## Der Rückweg („Roundtrip But Later")
 
@@ -253,6 +324,44 @@ vier Knopfdrücke 559 m / 988 m / 1039 m / 1192 m mit 31 / 16 / 12 / 13 %
 gemeinsamer Strecke – vorher war es ab dem zweiten Druck jedes Mal derselbe
 335-m-Weg mit 56 % Hinweg-Anteil.
 
+## Die Einstiegstour
+
+Beim allerersten Öffnen legt sich ein Dunkel über die Seite, in dem genau ein
+Bereich ausgespart und umrandet ist; daneben steht eine kurze Sprechblase.
+Fünf Schritte, keine Minute: **Startpunkt**, **Distanz & Verkehrsmittel**,
+**Route erzeugen**, **Höhenmeter-Wunsch**, **Rückweg später**. Teilen, Speichern
+und Einstellungen kommen nicht vor – selbsterklärende Symbole brauchen keinen
+Vortrag.
+
+Die Aussparung entsteht ohne zweite Ebene: ein durchsichtiger Kasten mit
+einem Schlagschatten, der größer ist als der Bildschirm (`box-shadow: 0 0 0
+9999px`). Der Kasten wandert samt Sprechblase zum jeweiligen Element, die
+Sprechblase kippt nach oben, wenn darunter kein Platz ist – auf dem Handy, wo
+das Panel als Bottom-Sheet unten klebt, ist das der Normalfall.
+
+**Was beim ersten Öffnen noch gar nicht da ist, erklärt die Tour auch nicht.**
+Varianten-Chips, Geister-Linien und Höhenprofil existieren vor der ersten Route
+schlicht nicht; eine Tour müsste auf leere Stellen zeigen und über etwas reden,
+das man nicht sieht. Stattdessen gibt es dafür je einen **einzelnen Hinweis**,
+der genau einmal erscheint, wenn die Sache zum ersten Mal auftaucht – derselbe
+Spotlight, aber ein Schritt statt fünf, ohne Schrittpunkte und mit „Alles klar"
+statt „Weiter". Läuft gerade die Tour, stellen sich die Hinweise hinten an.
+
+Weitere Regeln, die sich aus dem Zweck ergeben:
+
+- **Geteilte Links bleiben verschont.** Wer über `#r=…` kommt, will die Route
+  sehen und keinen Kurs; dort startet weder Tour noch Hinweis.
+- **Ein Abbruch ist ein Abbruch.** „Überspringen" oder Esc schaltet auch die
+  Einzelhinweise ab – wer abwinkt, will nicht zehn Minuten später wieder
+  angetippt werden.
+- **Bedienbar ohne Maus**: Pfeiltasten blättern, Esc bricht ab, der Fokus bleibt
+  in der Sprechblase gefangen, solange sie offen ist.
+- **Zurückholbar**: In den Einstellungen liegt „🧭 Kurze Einführung noch einmal
+  zeigen".
+- Gemerkt wird das in `localStorage` unter `roundtrip-tour`, zusammen mit einer
+  Versionsnummer – so lässt sich später ein einzelner neuer Hinweis nachreichen,
+  ohne allen wieder die ganze Tour vorzusetzen.
+
 ## Verwendete Dienste
 
 Alles über frei nutzbare, öffentliche Dienste – kein eigenes Backend, keine
@@ -261,7 +370,7 @@ API-Keys:
 | Dienst | Zweck | Grenzen |
 | --- | --- | --- |
 | [OSRM](https://routing.openstreetmap.de) (FOSSGIS-Instanzen, Fallback `router.project-osrm.org` fürs Auto) | Straßenrouting Fuß/Rad/Auto | Freie Demo-Server: `ITER_DELAY_MS`-Pause zwischen Anfragen, begrenztes `REQUEST_BUDGET` pro Rundkurs |
-| [Open-Meteo Elevation API](https://open-meteo.com) | Höhenprofil (Copernicus-90-m-Raster) | Max. `ELEV_SAMPLES` (100) Punkte pro Anfrage; Timeout + ein Wiederholungsversuch |
+| [Open-Meteo Elevation API](https://open-meteo.com) | Höhenprofil (Copernicus-90-m-Raster), Gelände-Vorabscan für den Höhenmeter-Wunsch | Max. `ELEV_SAMPLES` (100) Punkte pro Anfrage; Timeout + ein Wiederholungsversuch |
 | [Nominatim](https://nominatim.openstreetmap.org) | Adresssuche, Reverse-Geocoding für Standardnamen gespeicherter Routen | Nutzungsrichtlinien von OSM beachten |
 | OpenStreetMap-Kacheln | Kartendarstellung | – |
 | [Leaflet](https://leafletjs.com) 1.9.4 (CDN, `cdnjs`) | Kartenbibliothek | einzige externe Skript-/CSS-Abhängigkeit |
@@ -288,6 +397,7 @@ gegliedert (per Kommentar-Überschriften `================= … ================
   Karte              Leaflet-Setup, Live-Standort-Kartenbutton
   Geometrie-Helfer   Haversine, Zieldestination, Abtastung, Vereinfachung
   OSRM               osrmRoute()
+  Gelände-Scan       scanTerrain, elevAt, estimateClimb, climbPenalty
   Roundtrip-Algo.    searchSeed, makeRoundTrip, collectVariants, polish, …
   UI-Aktionen        Route zeichnen, Varianten, Status, Formatierung
   Höhenprofil        Laden, Glätten, Zeichnen, Zeiger-Interaktion
@@ -299,6 +409,7 @@ gegliedert (per Kommentar-Überschriften `================= … ================
   Standort & Suche   Geolocation-Button, Nominatim-Adresssuche
   Einstellungen      laden/speichern (localStorage)
   Erscheinungsbild   Theme anwenden, Leaflet-Ebenen nachziehen
+  Einstiegstour      Spotlight-Overlay, Schritte, Einzelhinweise
   DOM-Verdrahtung    Event-Handler, Panel ein-/ausklappen, Deep-Link laden
 ```
 
@@ -308,9 +419,11 @@ Es gibt keinen eigenen Server und kein Tracking. Persistiert wird
 ausschließlich lokal im Browser (`localStorage`):
 
 - `roundtrip-settings` – Toleranz, Autobahn-Einstellung, erlaubter
-  Rückweg-Umweg, Theme.
+  Rückweg-Umweg, Höhenmeter-Wunsch, Theme.
 - `roundtrip-routes` – gespeicherte Routen (Koordinaten, Wegpunkte,
   Höhenprofil, Metadaten).
+- `roundtrip-tour` – ob die Einstiegstour gelaufen (oder weggeklickt) ist und
+  welche Einzelhinweise schon gezeigt wurden.
 - `roundtrip-track` – die laufende oder zuletzt beendete Aufzeichnung des
   Hinwegs (Punkte mit Zeitstempel, Länge, Verkehrsmittel). Verlässt das Gerät
   nie; das 🗑️ in der Rückweg-Box löscht sie.
@@ -345,6 +458,8 @@ Last für die freien Dienste. `LIVE=1` schaltet auf die echten Dienste um.
 | `ui` | Ablauf: Route erzeugen, Varianten im Hintergrund, Höhenprofil samt Zeiger, Teilen-Link, Navi-Link, Speichern/Export/Import, Thema, Panel, Fahrrad, unroutbarer Start |
 | `return` | Aufzeichnung samt Filtern, Wiederherstellung nach dem Neuladen, Maß für gemeinsame Strecke, Rückweg-Suche und zweiter Vorschlag |
 | `elevation` | Verhalten, wenn der Höhen-Dienst Fehler liefert, hängt oder verspätet antwortet |
+| `climb` | Höhenmeter-Wunsch: Raster-Interpolation, Schätzung gegen eine schiefe Ebene, Strafe im Score, eine einzige Scan-Anfrage samt Cache, Knopf und Popover, Wirkung auf die Suchrichtung |
+| `tour` | Einstiegstour: Start nur beim ersten Besuch, Rahmen sitzt über dem erklärten Element (auch auf 360 px), Sprechblase bleibt im Bild und verdeckt es nicht, Einzelhinweise erst bei Bedarf, Abbruch, Wiederholung, geteilter Link |
 | `layout` | Beschriftung der Buttons über zwölf Bildschirmbreiten von 320–1280 px, mit und ohne Aufzeichnung |
 
 CI (`.github/workflows/ci.yml`) läuft bei jedem Push und Pull Request und
@@ -360,7 +475,8 @@ tests/
   run.js                 Test-Runner (Suiten auswählen, Ergebnis zusammenfassen)
   harness.js              Browser-/Server-Setup, Netz-Abfang, Leaflet-Cache
   stub.js                 Synthetische Antworten für OSRM/Open-Meteo/Nominatim
-  core.test.js, ui.test.js, return.test.js, elevation.test.js, layout.test.js
+  core.test.js, ui.test.js, return.test.js, elevation.test.js,
+  climb.test.js, tour.test.js, layout.test.js
   README.md               Ausführliche Test-Dokumentation
 .github/workflows/ci.yml Testlauf bei Push/PR
 ```
