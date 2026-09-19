@@ -42,6 +42,15 @@ Container keine eigene Zertifikatskette braucht.
 Läuft eine Adresse auf, die weder abgedeckt noch lokal ist, meldet der Lauf sie
 am Ende als „nicht abgedeckte Adresse“ – dann gehört sie in `stub.js`.
 
+## Sprache im Test
+
+Welche Sprache die Oberfläche spricht, entscheidet sonst der Browser. Damit
+die Suiten gegen feste Texte prüfen können, setzt `harness.js` jede Seite auf
+`de-DE`. Wer eine andere braucht, öffnet sie mit `newPage({ locale: "en-US" })`;
+`newPage({ lang: "de" })` legt zusätzlich die ausdrückliche Wahl im
+`localStorage` ab, so als hätte sie jemand in den Einstellungen getroffen.
+Genau das nutzt die Suite `i18n`.
+
 ## Standort ohne GPS
 
 Die Suite `return` braucht Positionsdaten. Statt Playwright echte Fixes
@@ -61,6 +70,7 @@ damit vollständig durch, nur die Browser-Schnittstelle davor ist ersetzt.
 | `climb` | Höhenmeter-Wunsch: Interpolation im Gelände-Raster, Schätzung gegen eine schiefe Ebene (nachrechenbar), Strafe im Score, eine einzige Scan-Anfrage samt Cache, Knopf und Popover, und dass „bergig“ tatsächlich eine andere Richtung findet als „flach“ |
 | `tour` | Einstiegstour: Start nur beim ersten Besuch, Rahmen über dem erklärten Element (auch auf 360 px Breite), Sprechblase im Bild und nicht im Weg, Einzelhinweise erst wenn es sie zu erklären gibt, Abbruch und Wiederholung, geteilter Link bleibt verschont |
 | `layout` | Beschriftung der Buttons über zwölf Bildschirmbreiten von 320 bis 1280 px, jeweils ohne und mit Aufzeichnung: nichts läuft über oder ragt aus dem Panel, Symbole nur bei wenig Platz, Bezeichnungen für Vorlesehilfen bleiben |
+| `i18n` | Sprachen: Wörterbücher deckungsgleich samt Platzhaltern, Rückfall auf die Quellsprache, Erkennung aus `navigator.languages`, deutsche und englische Oberfläche (auch Statuszeile, Zahlenformat und Karten-Quellenangabe), Umschalten ohne Neuladen, eigene Wahl über ein Neuladen hinweg, Sprachwahl im ersten Tour-Schritt, englische Beschriftungen von 320 bis 1280 px |
 
 ## Wenn ein Test rot ist
 

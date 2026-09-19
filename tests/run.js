@@ -14,7 +14,8 @@ const SUITES = {
   elevation: "./elevation.test.js",
   climb: "./climb.test.js",
   tour: "./tour.test.js",
-  layout: "./layout.test.js"
+  layout: "./layout.test.js",
+  i18n: "./i18n.test.js"
 };
 
 (async () => {

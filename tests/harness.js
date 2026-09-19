@@ -64,9 +64,23 @@ async function launch() {
      hinterlegt, den ein Nutzer hat, der die Einführung weggeklickt hat: keine
      Tour, keine Einzelhinweise. Sonst prüfte jede Suite gegen ein Overlay statt
      gegen die Bedienung. Mit { tour: true } bleibt der erste Besuch ein erster
-     Besuch. */
+     Besuch.
+
+     Die Sprache der Oberfläche kommt aus dem Browser. Damit die Suiten gegen
+     feste Texte prüfen können, ist sie hier auf Deutsch festgelegt; die Suite
+     `i18n` setzt mit { locale: "en-US" } gezielt eine andere. Mit
+     { lang: "de" | "en" | "auto" } wird zusätzlich die ausdrückliche Wahl
+     hinterlegt, so als hätte sie jemand in den Einstellungen getroffen. */
   state.newPage = async (opts = {}) => {
-    const page = await browser.newPage({ viewport: opts.viewport || { width: 1000, height: 780 } });
+    const page = await browser.newPage({ viewport: opts.viewport || { width: 1000, height: 780 },
+                                         locale: opts.locale || "de-DE" });
+    if (opts.lang) await page.addInitScript(chosen => {
+      try {
+        const prev = JSON.parse(localStorage.getItem("roundtrip-settings")) || {};
+        localStorage.setItem("roundtrip-settings",
+          JSON.stringify({ ...prev, lang: chosen === "auto" ? null : chosen }));
+      } catch { /* im Test nie erwartet */ }
+    }, opts.lang);
     if (!opts.tour) await page.addInitScript(() => {
       try {
         localStorage.setItem("roundtrip-tour",
